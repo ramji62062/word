@@ -1129,6 +1129,27 @@
         </div>
         <div class="ribbon-group-label">Page Borders</div>
       </div>
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:8px;">
+          <button class="toolbar-btn" onclick="alert('Merge PDFs functionality will open a drag-and-drop modal to arrange and combine files.')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-object-group" style="font-size: 20px; color: #107c41;"></i>
+            <span>Merge PDFs</span>
+          </button>
+          <button class="toolbar-btn" onclick="alert('Split PDF functionality will allow splitting by range, size, or bookmarks.')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-object-ungroup" style="font-size: 20px; color: #d83b01;"></i>
+            <span>Split PDF</span>
+          </button>
+          <button class="toolbar-btn" onclick="alert('Compare PDFs will open two documents side-by-side and highlight differences.')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-code-compare" style="font-size: 20px; color: #7b3fb6;"></i>
+            <span>Compare</span>
+          </button>
+          <button class="toolbar-btn" onclick="alert('Batch Process will apply watermarks, passwords, or conversions to multiple files.')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-layer-group" style="font-size: 20px; color: #185abd;"></i>
+            <span>Batch Process</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Document Operations</div>
+      </div>
     </div>
 
     <!-- 5. LAYOUT TAB TOOLBAR -->
@@ -1175,6 +1196,31 @@
           </button>
         </div>
         <div class="ribbon-group-label">Size</div>
+      </div>
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:8px;">
+          <button class="toolbar-btn" onclick="window.pageTools.deleteActivePage()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-trash-can" style="font-size: 18px; color:#d13438;"></i>
+            <span>Delete Page</span>
+          </button>
+          <button class="toolbar-btn" onclick="window.pageTools.duplicateActivePage()" onmousedown="event.preventDefault()">
+            <i class="fa-regular fa-copy" style="font-size: 18px; color:#185abd;"></i>
+            <span>Duplicate</span>
+          </button>
+          <button class="toolbar-btn" onclick="window.pageTools.rotateActivePage()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-rotate-right" style="font-size: 18px; color:#107c41;"></i>
+            <span>Rotate</span>
+          </button>
+          <button class="toolbar-btn" onclick="window.pageTools.extractActivePage()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-file-export" style="font-size: 18px; color:#7b3fb6;"></i>
+            <span>Extract</span>
+          </button>
+          <button class="toolbar-btn" onclick="window.pageTools.replaceActivePage()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-file-import" style="font-size: 18px; color:#d83b01;"></i>
+            <span>Replace</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Page Actions</div>
       </div>
     </div>
 
@@ -1713,6 +1759,26 @@
             card.classList.add('active-page');
           };
 
+          // Drag and Drop reordering
+          card.draggable = true;
+          card.ondragstart = (e) => { e.dataTransfer.setData('text/plain', idx); };
+          card.ondragover = (e) => { e.preventDefault(); card.style.borderTop = '2px solid #185abd'; };
+          card.ondragleave = (e) => { card.style.borderTop = ''; };
+          card.ondrop = (e) => {
+            e.preventDefault();
+            card.style.borderTop = '';
+            const fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
+            if (fromIdx !== idx && !isNaN(fromIdx)) {
+              const pages = Array.from(document.querySelectorAll('#pageContainer .page'));
+              const pc = document.getElementById('pageContainer');
+              if (fromIdx < idx) pc.insertBefore(pages[fromIdx], pages[idx].nextSibling);
+              else pc.insertBefore(pages[fromIdx], pages[idx]);
+              // Clear cache because indices shifted
+              thumbCache.clear();
+              buildThumbnails();
+            }
+          };
+
           // Check if this is a PDF canvas page
           const canvas = page.querySelector('canvas');
           if (canvas) {
@@ -1742,7 +1808,16 @@
 
           const lbl = document.createElement('div');
           lbl.className = 'thumb-label';
-          lbl.textContent = 'Page ' + (idx + 1);
+          // Store custom label in dataset or default to 'Page X'
+          lbl.textContent = page.dataset.pageLabel || 'Page ' + (idx + 1);
+          lbl.ondblclick = (e) => {
+            e.stopPropagation();
+            const newLabel = prompt("Enter new page label:", lbl.textContent);
+            if (newLabel !== null) {
+              page.dataset.pageLabel = newLabel.trim() || ('Page ' + (idx + 1));
+              lbl.textContent = page.dataset.pageLabel;
+            }
+          };
           card.appendChild(lbl);
 
           thumbCache.set(idx, cached);
@@ -3915,6 +3990,7 @@
     });
   </script>
   <script src="annotations.js"></script>
+  <script src="page_tools.js"></script>
   <script src="platform.js"></script>
 </body>
 </html>
