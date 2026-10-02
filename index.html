@@ -232,26 +232,22 @@
     /* Workspace — actual styles are in the sidebar section below */
 
     /* Rulers (Horizontal & Vertical) */
-    .ruler-container {
-      width: 21cm;
-      height: 18px;
-      background: #faf9f8;
-      border: 1px solid #d2d0ce;
-      border-bottom: none;
-      display: flex;
-      align-items: flex-end;
-      padding: 0 2.54cm;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-      user-select: none;
-    }
-    .ruler-marks {
-      flex: 1;
-      height: 8px;
-      border-top: 1px solid #8a8886;
-      background: repeating-linear-gradient(90deg, #605e5c 0, #605e5c 1px, transparent 1px, transparent 0.5cm);
+
+
+
+    /* =====================================================
+       PAGE MODEL — single source of truth for all spacing
+       ===================================================== */
+    :root {
+      --page-width: 21cm;
+      --page-height: 29.7cm;
+      --page-margin: 2.54cm;
+      --page-font: 'Calibri', 'Segoe UI', Arial, sans-serif;
+      --page-font-size: 11pt;
+      --para-line-height: 1.35;
+      --para-margin-bottom: 6pt;
     }
 
-    /* The Realistic A4 Document Page */
     .page-container {
       display: flex;
       flex-direction: column;
@@ -259,61 +255,84 @@
     }
     .page {
       background-color: #ffffff;
-      width: 21cm; /* Standard A4 */
-      min-height: 29.7cm; /* Standard A4 */
-      padding: 2.54cm; /* Standard 1 inch margins */
+      width: var(--page-width);
+      min-height: var(--page-height);
+      padding: var(--page-margin);
       box-shadow: 0 4px 16px rgba(0,0,0,0.18);
       outline: none;
-      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
-      font-size: 11pt;
-      line-height: 1.25;
+      font-family: var(--page-font);
+      font-size: var(--page-font-size);
+      line-height: var(--para-line-height);
       color: #000000;
       cursor: text;
       position: relative;
       box-sizing: border-box;
       overflow-wrap: break-word;
-      transition: all 0.2s ease;
+      overflow: hidden;
     }
     .page img { max-width: 100%; height: auto; }
 
-    /* Watermark effect */
     .page.watermark::before {
       content: attr(data-watermark);
       position: absolute;
-      top: 40%;
-      left: 10%;
-      width: 80%;
-      font-size: 72pt;
-      font-weight: bold;
+      top: 40%; left: 10%; width: 80%;
+      font-size: 72pt; font-weight: bold;
       color: rgba(200, 200, 200, 0.3);
       text-transform: uppercase;
       transform: rotate(-35deg);
-      pointer-events: none;
-      text-align: center;
-      user-select: none;
+      pointer-events: none; text-align: center; user-select: none;
     }
 
-    .page p { margin-bottom: 8pt; }
-    .page h1 { font-size: 20pt; font-weight: bold; color: #185abd; margin-bottom: 12pt; }
-    .page h2 { font-size: 15pt; font-weight: bold; color: #185abd; margin-bottom: 10pt; }
-    .page h3 { font-size: 12.5pt; font-weight: bold; color: #201f1e; margin-bottom: 8pt; }
+    /* Consistent paragraph model — one rule, one source of truth */
+    .page p {
+      margin-top: 0;
+      margin-bottom: var(--para-margin-bottom);
+      line-height: var(--para-line-height);
+    }
+    .page p:last-child { margin-bottom: 0; }
+    .page h1 { font-size: 20pt; font-weight: bold; color: #185abd; margin-top: 0; margin-bottom: 10pt; line-height: 1.2; }
+    .page h2 { font-size: 15pt; font-weight: bold; color: #185abd; margin-top: 0; margin-bottom: 8pt; line-height: 1.25; }
+    .page h3 { font-size: 12.5pt; font-weight: bold; color: #201f1e; margin-top: 0; margin-bottom: 6pt; line-height: 1.3; }
     .page blockquote {
-      border-left: 3px solid #185abd;
-      padding-left: 14px;
-      color: #555;
-      font-style: italic;
-      margin: 12pt 0;
+      border-left: 3px solid #185abd; padding-left: 14px;
+      color: #555; font-style: italic; margin: 8pt 0;
     }
-    .page table {
+    .page table { width: 100%; border-collapse: collapse; margin: 8pt 0; }
+    .page table td, .page table th { border: 1px solid #999; padding: 8px 10px; min-width: 40px; }
+
+    /* =====================================================
+       RULER — pixel-perfect alignment with page content area
+       ===================================================== */
+    .ruler-outer {
+      width: var(--page-width);
+      user-select: none;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .ruler-container {
       width: 100%;
-      border-collapse: collapse;
-      margin: 12pt 0;
+      height: 20px;
+      background: #e8e6e4;
+      border: 1px solid #d2d0ce;
+      border-bottom: none;
+      box-sizing: border-box;
+      overflow: hidden;
+      position: relative;
     }
-    .page table td, .page table th {
-      border: 1px solid #999;
-      padding: 8px 10px;
-      min-width: 40px;
+    .ruler-content-bg {
+      position: absolute;
+      top: 0; bottom: 0;
+      background: #faf9f8;
     }
+    .ruler-tick { position: absolute; bottom: 0; width: 1px; background: #605e5c; }
+    .ruler-label {
+      position: absolute; bottom: 8px;
+      font-size: 7.5px; color: #605e5c;
+      transform: translateX(-50%);
+      font-family: 'Segoe UI', Arial, sans-serif;
+      pointer-events: none;
+    }
+
 
     /* Backstage Modal Menu */
     .file-drawer {
@@ -598,14 +617,38 @@
     }
     .thumb-card:hover { border-color: var(--active-border); background: var(--hover); }
     .thumb-card.active-page { border-color: var(--primary); }
+
+    /* Thumbnail: fixed clip box → scaled full-page clone inside */
+    .thumb-clip {
+      width: 156px;          /* thumb display width */
+      height: 220px;         /* thumb display height (A4 ratio ≈ 1:1.414) */
+      overflow: hidden;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+      position: relative;
+      border: 1px solid #e1dfdd;
+      display: block;
+    }
+    .thumb-page-clone {
+      /* JS will set width, height, transform-origin:top left, transform:scale(ratio) */
+      position: absolute;
+      top: 0; left: 0;
+      pointer-events: none;
+      background: #fff;
+      box-shadow: none !important;
+      outline: none !important;
+      overflow: hidden !important;
+    }
+    /* Canvas thumbnail (for PDF pages) */
     .thumb-canvas {
-      width: 100%;
+      width: 156px;
       height: auto;
       display: block;
       background: #fff;
       box-shadow: 0 1px 4px rgba(0,0,0,0.12);
     }
-    .thumb-label { font-size: 9px; color: var(--text-main); opacity: 0.7; margin-top: 2px; }
+    .thumb-label { font-size: 9px; color: var(--text-main); opacity: 0.7; margin-top: 3px; text-align: center; }
+
 
     /* Outline panel */
     .outline-item {
@@ -1139,9 +1182,9 @@
     <div class="ribbon-toolbar" id="toolbar-review" style="display: none;">
       <div class="ribbon-group">
         <div class="ribbon-row" style="margin-bottom:0; gap:8px;">
-          <button class="toolbar-btn" onclick="checkSpelling()" onmousedown="event.preventDefault()">
+          <button class="toolbar-btn" id="btn-spellcheck" onclick="toggleSpellcheck()" onmousedown="event.preventDefault()">
             <i class="fa-solid fa-spell-check" style="font-size: 20px; color: #107c41;"></i>
-            <span>Spelling & Grammar</span>
+            <span>Spellcheck</span>
           </button>
           <button class="toolbar-btn" onclick="showWordCountDialog()" onmousedown="event.preventDefault()">
             <i class="fa-solid fa-chart-simple" style="font-size: 20px; color: #185abd;"></i>
@@ -1427,14 +1470,14 @@
 
     <!-- Workspace Canvas -->
     <main class="workspace" id="mainWorkspace" onclick="focusEditor(event)" oncontextmenu="showContextMenu(event)">
-      <!-- Top Horizontal Ruler -->
-      <div class="ruler-container" id="ruler">
-        <div class="ruler-marks"></div>
+      <!-- Proper Ruler — same width as page, JS renders ticks -->
+      <div class="ruler-outer" id="rulerOuter">
+        <div class="ruler-container" id="ruler"></div>
       </div>
 
       <!-- Pages Container -->
       <div class="page-container" id="pageContainer">
-        <div class="page" id="editor" contenteditable="true" spellcheck="true">
+        <div class="page" id="editor" contenteditable="true" spellcheck="false">
           <p><br></p>
         </div>
       </div>
@@ -1484,11 +1527,100 @@
       document.execCommand('defaultParagraphSeparator', false, 'p');
       updateStats();
       autoLoadDraft();
+      buildRuler();
       setTimeout(() => {
         buildThumbnails();
         buildOutline();
       }, 400);
+
+      // Sync active thumbnail on workspace scroll
+      const ws = document.getElementById('mainWorkspace');
+      if (ws) {
+        let scrollTimer = null;
+        ws.addEventListener('scroll', () => {
+          clearTimeout(scrollTimer);
+          scrollTimer = setTimeout(syncActiveThumbnail, 100);
+        });
+      }
     };
+
+    /* ============================================================
+       RULER JS — draws tick marks aligned to page content area
+       ============================================================ */
+    function buildRuler(zoomScale) {
+      const ruler = document.getElementById('ruler');
+      if (!ruler) return;
+      ruler.innerHTML = '';
+
+      const scale = zoomScale || 1;
+      // Get actual page dimensions
+      const samplePage = document.querySelector('#pageContainer .page');
+      let pageWidthPx = samplePage ? samplePage.offsetWidth : 794;
+      if (pageWidthPx === 0) pageWidthPx = 794; // fallback: 21cm @ 96dpi ≈ 794px
+
+      const pageWidthCm = 21; // A4 width in cm
+      const marginCm = 2.54; // 1 inch margin
+      const pxPerCm = pageWidthPx / pageWidthCm;
+      const marginPx = marginCm * pxPerCm;
+      const contentWidthPx = pageWidthPx - 2 * marginPx;
+
+      // Content area background (white region)
+      const contentBg = document.createElement('div');
+      contentBg.className = 'ruler-content-bg';
+      contentBg.style.left = marginPx + 'px';
+      contentBg.style.width = contentWidthPx + 'px';
+      ruler.appendChild(contentBg);
+
+      // Draw ticks every 0.5cm; label every 1cm, measuring from content start
+      const stepCm = 0.5;
+      const stepPx = stepCm * pxPerCm;
+      const totalSteps = Math.ceil(pageWidthCm / stepCm) + 2;
+
+      for (let i = -2; i <= totalSteps; i++) {
+        const xFromStart = i * stepPx; // from page left edge
+        const xPx = xFromStart;
+        if (xPx < 0 || xPx > pageWidthPx) continue;
+
+        const isMain = (i % 2 === 0); // every 1cm
+        const tick = document.createElement('div');
+        tick.className = 'ruler-tick';
+        tick.style.left = xPx + 'px';
+        tick.style.height = isMain ? '8px' : '4px';
+        if (!isMain) tick.style.background = '#a19f9d';
+        ruler.appendChild(tick);
+
+        // Label at major ticks (1cm intervals), measured from content start
+        if (isMain) {
+          const posFromContentStart = (xFromStart - marginPx) / pxPerCm; // in cm
+          const label = document.createElement('div');
+          label.className = 'ruler-label';
+          label.style.left = xPx + 'px';
+          // Show 0 at margin start; positive values in cm to right
+          if (Math.abs(posFromContentStart) < 0.01) {
+            label.textContent = '0';
+          } else if (posFromContentStart > 0 && posFromContentStart < (pageWidthCm - 2 * marginCm + 0.01)) {
+            label.textContent = posFromContentStart.toFixed(0);
+          }
+          ruler.appendChild(label);
+        }
+      }
+    }
+
+    /* Spellcheck toggle — default OFF for PDF/doc editing */
+    let spellcheckEnabled = false;
+    function toggleSpellcheck() {
+      spellcheckEnabled = !spellcheckEnabled;
+      document.querySelectorAll('#pageContainer .page').forEach(p => {
+        p.setAttribute('spellcheck', spellcheckEnabled ? 'true' : 'false');
+      });
+      const btn = document.getElementById('btn-spellcheck');
+      if (btn) btn.classList.toggle('active', spellcheckEnabled);
+      // Trigger browser spellcheck re-evaluation by briefly toggling
+      if (spellcheckEnabled) {
+        const ae = document.activeElement;
+        if (ae && ae.isContentEditable) { ae.blur(); ae.focus(); }
+      }
+    }
 
     /* ============================================================
        LAYER 2 — WPS UI Shell
@@ -1513,46 +1645,185 @@
       if (name === 'outline') buildOutline();
     }
 
-    // ---- Page Thumbnails ----
+    // ---- Page Thumbnails (FIXED: CSS transform scale on full-page clone) ----
+    const THUMB_W = 156; // px display width of thumbnail
+    const THUMB_RATIO = 297/210; // A4 height/width
+    const THUMB_H = Math.round(THUMB_W * THUMB_RATIO); // ≈ 220px
+
+    // Cache: page index → {card, clip, dirty flag}
+    const thumbCache = new Map();
+    let thumbObserver = null;
+
     function buildThumbnails() {
       const container = document.getElementById('thumbnailContainer');
       if (!container) return;
-      container.innerHTML = '';
-      const pages = document.querySelectorAll('#pageContainer .page');
-      pages.forEach((page, idx) => {
-        const card = document.createElement('div');
-        card.className = 'thumb-card' + (idx === 0 ? ' active-page' : '');
-        card.onclick = () => {
-          page.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          document.querySelectorAll('.thumb-card').forEach(c => c.classList.remove('active-page'));
-          card.classList.add('active-page');
-        };
 
-        // Try canvas thumbnail first
-        const canvas = page.querySelector('canvas');
-        if (canvas) {
-          const thumbCanvas = document.createElement('canvas');
-          const ratio = 168 / canvas.width;
-          thumbCanvas.width = 168;
-          thumbCanvas.height = Math.round(canvas.height * ratio);
-          thumbCanvas.className = 'thumb-canvas';
-          try {
-            thumbCanvas.getContext('2d').drawImage(canvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
-          } catch(e) {}
-          card.appendChild(thumbCanvas);
-        } else {
-          // HTML page preview
-          const mini = document.createElement('div');
-          mini.style.cssText = 'width:168px;height:238px;background:#fff;overflow:hidden;border:1px solid #e1dfdd;font-size:2px;line-height:1.2;padding:6px;box-sizing:border-box;';
-          mini.innerHTML = page.innerHTML;
-          card.appendChild(mini);
+      const pages = Array.from(document.querySelectorAll('#pageContainer .page'));
+      if (!pages.length) return;
+
+      // Determine page width in px from the DOM (accounts for zoom)
+      const samplePage = pages[0];
+      const pageWidthPx = samplePage.offsetWidth || samplePage.scrollWidth || 794; // 21cm≈794px at 96dpi
+
+      // Disconnect old observer
+      if (thumbObserver) thumbObserver.disconnect();
+
+      // Remove cards for pages that no longer exist
+      const existingCards = container.querySelectorAll('.thumb-card');
+      existingCards.forEach((c, i) => { if (i >= pages.length) c.remove(); });
+
+      pages.forEach((page, idx) => {
+        let cached = thumbCache.get(idx);
+
+        // Create card if new
+        if (!cached || !container.contains(cached.card)) {
+          const card = document.createElement('div');
+          card.className = 'thumb-card' + (idx === 0 ? ' active-page' : '');
+          card.dataset.pageIdx = idx;
+
+          card.onclick = () => {
+            page.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            container.querySelectorAll('.thumb-card').forEach(c => c.classList.remove('active-page'));
+            card.classList.add('active-page');
+          };
+
+          // Check if this is a PDF canvas page
+          const canvas = page.querySelector('canvas');
+          if (canvas) {
+            // PDF page: copy canvas pixels
+            const thumbCanvas = document.createElement('canvas');
+            thumbCanvas.className = 'thumb-canvas';
+            thumbCanvas.width = THUMB_W * window.devicePixelRatio;
+            thumbCanvas.height = THUMB_H * window.devicePixelRatio;
+            thumbCanvas.style.width = THUMB_W + 'px';
+            thumbCanvas.style.height = THUMB_H + 'px';
+            try {
+              thumbCanvas.getContext('2d').drawImage(canvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
+            } catch(e) {}
+            card.appendChild(thumbCanvas);
+            cached = { card, clip: null, canvas: thumbCanvas, isPdf: true };
+          } else {
+            // HTML page: scaled DOM clone
+            const clip = document.createElement('div');
+            clip.className = 'thumb-clip';
+            clip.style.width = THUMB_W + 'px';
+            clip.style.height = THUMB_H + 'px';
+
+            card.appendChild(clip);
+            cached = { card, clip, canvas: null, isPdf: false, dirty: true };
+            renderHtmlThumb(page, cached, pageWidthPx);
+          }
+
+          const lbl = document.createElement('div');
+          lbl.className = 'thumb-label';
+          lbl.textContent = 'Page ' + (idx + 1);
+          card.appendChild(lbl);
+
+          thumbCache.set(idx, cached);
+
+          // Insert in correct position
+          const existing = container.children[idx];
+          if (existing) container.insertBefore(card, existing);
+          else container.appendChild(card);
+
+        } else if (cached.dirty && !cached.isPdf) {
+          renderHtmlThumb(page, cached, pageWidthPx);
         }
-        const lbl = document.createElement('div');
-        lbl.className = 'thumb-label';
-        lbl.textContent = 'Page ' + (idx + 1);
-        card.appendChild(lbl);
-        container.appendChild(card);
       });
+
+      // Set up IntersectionObserver for lazy PDF thumbnail rendering
+      thumbObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (!entry.isIntersecting) return;
+          const card = entry.target;
+          const idx = parseInt(card.dataset.pageIdx, 10);
+          const page = pages[idx];
+          if (!page) return;
+          const c = thumbCache.get(idx);
+          if (c && c.isPdf && c.canvas) {
+            const pdfCanvas = page.querySelector('canvas');
+            if (pdfCanvas) {
+              try {
+                c.canvas.getContext('2d').drawImage(pdfCanvas, 0, 0, c.canvas.width, c.canvas.height);
+              } catch(e) {}
+            }
+          }
+        });
+      }, { root: document.getElementById('panel-thumbnails'), rootMargin: '200px', threshold: 0 });
+
+      container.querySelectorAll('.thumb-card').forEach(card => thumbObserver.observe(card));
+
+      // Mark active page on scroll
+      syncActiveThumbnail();
+    }
+
+    function renderHtmlThumb(page, cached, pageWidthPx) {
+      if (!cached.clip) return;
+      const clip = cached.clip;
+      clip.innerHTML = '';
+
+      // Clone the page content (not the page element itself to avoid duplicate IDs)
+      const clone = document.createElement('div');
+      clone.className = 'thumb-page-clone';
+
+      // Give clone exact page dimensions
+      clone.style.width = pageWidthPx + 'px';
+      // Compute page height
+      const pageH = page.offsetHeight || page.scrollHeight || Math.round(pageWidthPx * THUMB_RATIO);
+      clone.style.height = pageH + 'px';
+      clone.style.padding = window.getComputedStyle(page).padding;
+      clone.style.font = window.getComputedStyle(page).font;
+      clone.style.lineHeight = window.getComputedStyle(page).lineHeight;
+      clone.style.color = window.getComputedStyle(page).color;
+      clone.style.background = '#fff';
+      clone.style.boxSizing = 'border-box';
+      clone.style.fontFamily = window.getComputedStyle(page).fontFamily;
+      clone.style.fontSize = window.getComputedStyle(page).fontSize;
+
+      // Copy HTML content
+      clone.innerHTML = page.innerHTML;
+
+      // Remove any editing-related attributes from clone
+      clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+      clone.querySelectorAll('[spellcheck]').forEach(el => el.removeAttribute('spellcheck'));
+
+      // Scale down: scale = THUMB_W / pageWidthPx
+      const scale = THUMB_W / pageWidthPx;
+      clone.style.transform = `scale(${scale})`;
+      clone.style.transformOrigin = 'top left';
+
+      clip.appendChild(clone);
+      cached.dirty = false;
+    }
+
+    // Mark which thumbnail is the current page
+    function syncActiveThumbnail() {
+      const pages = document.querySelectorAll('#pageContainer .page');
+      const ws = document.getElementById('mainWorkspace');
+      if (!ws) return;
+      const wsRect = ws.getBoundingClientRect();
+      let currentIdx = 0;
+      pages.forEach((page, idx) => {
+        const rect = page.getBoundingClientRect();
+        if (rect.top <= wsRect.top + wsRect.height / 2) currentIdx = idx;
+      });
+      const container = document.getElementById('thumbnailContainer');
+      if (!container) return;
+      container.querySelectorAll('.thumb-card').forEach((card, i) => {
+        card.classList.toggle('active-page', i === currentIdx);
+      });
+      // Scroll sidebar to make active card visible
+      const activeCard = container.querySelector('.thumb-card.active-page');
+      if (activeCard) activeCard.scrollIntoView({ block: 'nearest' });
+    }
+
+    // Mark a specific page's thumbnail as dirty (needs re-render)
+    function markThumbDirty(pageEl) {
+      const pages = Array.from(document.querySelectorAll('#pageContainer .page'));
+      const idx = pages.indexOf(pageEl);
+      if (idx === -1) return;
+      const c = thumbCache.get(idx);
+      if (c) c.dirty = true;
     }
 
     // ---- Document Outline ----
@@ -1768,10 +2039,24 @@
       level = Math.max(25, Math.min(300, parseInt(level, 10)));
       const scale = level / 100;
       const pc = document.getElementById('pageContainer');
+      const rulerOuter = document.getElementById('rulerOuter');
+
       if (pc) {
         pc.style.transform = `scale(${scale})`;
         pc.style.transformOrigin = 'top center';
       }
+
+      // Rebuild ruler ticks at the new scale
+      buildRuler(scale);
+
+      // Match the ruler outer width to the visually scaled page width
+      if (rulerOuter) {
+        const firstPage = document.querySelector('#pageContainer .page');
+        if (firstPage) {
+          rulerOuter.style.width = (firstPage.offsetWidth * scale) + 'px';
+        }
+      }
+
       // Also rerender PDF pages if engine is active
       if (window.wpsPdfEngine && window.wpsPdfEngine.setZoom) {
         window.wpsPdfEngine.setZoom(scale);
@@ -1856,14 +2141,22 @@
       }
     }
 
-    // ---- Rebuild thumbnails/outline when content changes ----
+
+    // ---- Thumbnail rebuild — per-page, 300ms debounce ----
     let thumbRebuildTimer = null;
-    function scheduleThumbRebuild() {
+    function scheduleThumbRebuild(targetPage) {
+      // If a specific page is provided, mark it dirty immediately
+      if (targetPage) markThumbDirty(targetPage);
+      else {
+        // Mark the currently focused page dirty
+        const focused = document.activeElement && document.activeElement.closest('.page');
+        if (focused) markThumbDirty(focused);
+      }
       clearTimeout(thumbRebuildTimer);
       thumbRebuildTimer = setTimeout(() => {
         buildThumbnails();
         buildOutline();
-      }, 1200);
+      }, 300);
     }
 
     function focusEditor(event) {
@@ -3411,20 +3704,58 @@
     }
 
     /* Stats & Live Toolbar Updates */
+    let statsDebounceTimer = null;
     function updateStats() {
-      const pages = document.querySelectorAll('#pageContainer .page');
+      clearTimeout(statsDebounceTimer);
+      statsDebounceTimer = setTimeout(_doUpdateStats, 80);
+    }
+
+    function _doUpdateStats() {
+      // Count only from editable text pages (contenteditable), NOT PDF canvas pages
+      const editablePages = Array.from(document.querySelectorAll('#pageContainer .page')).filter(p => {
+        // Skip pages that are purely canvas-based (PDF pages rendered as canvas)
+        const hasCanvas = p.querySelector('canvas');
+        const hasText = (p.innerText || '').trim().length > 0;
+        return !hasCanvas || hasText;
+      });
+
       let text = '';
-      pages.forEach(p => { text += (p.innerText || '') + ' '; });
-      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
-      const chars = text.length;
-      document.getElementById('wordCount').innerText = `Words: ${words}`;
-      document.getElementById('charCount').innerText = `Characters: ${chars}`;
+      const sel = window.getSelection();
+      if (sel && sel.toString().length > 0) {
+        // Show count for selection when text is selected
+        text = sel.toString();
+        const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+        document.getElementById('wordCount').innerText = `Sel: ${words} words`;
+        document.getElementById('charCount').innerText = `${text.length} chars`;
+      } else {
+        // Full document count from editable pages only
+        editablePages.forEach(p => { text += (p.innerText || '') + ' '; });
+        const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+        // Characters = non-whitespace character count (like Word counts)
+        const chars = text.replace(/\s/g, '').length;
+        document.getElementById('wordCount').innerText = `Words: ${words}`;
+        document.getElementById('charCount').innerText = `Characters: ${chars}`;
+      }
       updatePageCount();
     }
 
     function updatePageCount() {
-      const pages = document.querySelectorAll('.page').length;
-      document.getElementById('pageCount').innerText = `Page 1 of ${pages}`;
+      const allPages = document.querySelectorAll('#pageContainer .page, #pageContainer .wps-pdf-page');
+      const total = allPages.length || document.querySelectorAll('.page').length;
+
+      // Find which page the cursor is on
+      let currentPage = 1;
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount) {
+        const node = sel.getRangeAt(0).commonAncestorContainer;
+        const pageEl = node.nodeType === 1 ? node.closest('.page') : node.parentElement?.closest('.page');
+        if (pageEl) {
+          const allPageEls = Array.from(document.querySelectorAll('#pageContainer .page'));
+          const idx = allPageEls.indexOf(pageEl);
+          if (idx !== -1) currentPage = idx + 1;
+        }
+      }
+      document.getElementById('pageCount').innerText = `Page ${currentPage} of ${total}`;
     }
 
     function updateToolbarState() {
