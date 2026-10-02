@@ -9,6 +9,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.6/dist/docx-preview.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
@@ -903,8 +904,10 @@
         <i class="fa-solid fa-file-word"></i> Word File
       </div>
       <div class="file-drawer-item" onclick="newDoc()"><i class="fa-solid fa-file-circle-plus"></i> New Blank Document</div>
-      <div class="file-drawer-item" onclick="openDocPrompt()"><i class="fa-solid fa-folder-open"></i> Open & Edit Document</div>
+      <div class="file-drawer-item" onclick="openDocPrompt()"><i class="fa-solid fa-folder-open"></i> Open Original Document</div>
       <input type="file" id="fileDocInput" accept=".doc,.docx,.odt,.pdf,.rtf,.md,.markdown,.html,.htm,.txt,image/*" style="display: none;" onchange="loadDocFile(event)">
+      <div class="file-drawer-item" onclick="makeEditableCopy()"><i class="fa-solid fa-pen-to-square"></i> Make Editable Copy</div>
+      <div class="file-drawer-item" onclick="downloadOriginalSource()"><i class="fa-solid fa-download"></i> Download Original</div>
       <div class="file-drawer-item" onclick="saveDoc()"><i class="fa-solid fa-floppy-disk"></i> Save (.doc / Word file)</div>
       <div class="file-drawer-item" onclick="exportToPDF()"><i class="fa-solid fa-file-pdf"></i> Export as PDF</div>
       <div class="file-drawer-item" onclick="window.print()"><i class="fa-solid fa-print"></i> Print Layout</div>
@@ -955,6 +958,8 @@
     let drawingContext = null;
     let drawingHistory = [];
     let selectedEditorImage = null;
+    let originalSourceFile = null;
+    let originalSourceKind = null;
 
     window.onload = () => {
       editor.focus();
@@ -1743,6 +1748,7 @@
     }
 
     function setImportedDocument(html, fileName) {
+      clearOriginalSourceView();
       editor.innerHTML = html || '<p><br></p>';
       document.getElementById('docName').innerText = fileName.replace(/\.[^.]+$/, '') + '.docx';
       updateDocTitle();
@@ -1750,6 +1756,81 @@
       autoSaveDraft();
       toggleFileMenu();
       editor.focus();
+    }
+
+    function clearOriginalSourceView() {
+      document.getElementById('sourceDocumentView')?.remove();
+      editor.style.display = '';
+      originalSourceKind = null;
+    }
+
+    function showOriginalSourceView(title, message = '') {
+      const pageContainer = document.getElementById('pageContainer');
+      document.getElementById('sourceDocumentView')?.remove();
+      editor.style.display = 'none';
+      const view = document.createElement('section');
+      view.id = 'sourceDocumentView';
+      view.style.cssText = 'width:21cm; min-height:8cm; background:#fff; box-shadow:0 4px 16px rgba(0,0,0,.18); padding:18px;';
+      view.innerHTML = `<div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; border-bottom:1px solid #d2d0ce; padding-bottom:12px; margin-bottom:16px;"><div><strong style="color:#185abd;">Original source - unchanged</strong><div style="font-size:12px;color:#666;margin-top:4px;">${escapeHtml(title)}</div></div><button onclick="makeEditableCopy()" style="background:#185abd;color:#fff;border:0;padding:8px 10px;border-radius:3px;cursor:pointer;">Make Editable Copy</button></div>${message ? `<p style="color:#555;font-size:12px;">${escapeHtml(message)}</p>` : ''}`;
+      pageContainer.appendChild(view);
+      return view;
+    }
+
+    async function openPdfOriginal(file) {
+      if (!window.pdfjsLib) throw new Error('PDF viewer could not load. Check your connection and try again.');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const sourceView = showOriginalSourceView(file.name, 'Viewing the original PDF page-for-page. No text or layout has been changed.');
+      const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+      for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+        const page = await pdf.getPage(pageNumber);
+        const viewport = page.getViewport({ scale: 1.35 });
+        const frame = document.createElement('figure');
+        frame.style.cssText = 'margin:18px 0; background:#e9edf2; padding:16px;';
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width; canvas.height = viewport.height;
+        canvas.style.cssText = 'display:block; max-width:100%; height:auto; margin:auto; background:#fff; box-shadow:0 3px 10px rgba(0,0,0,.18);';
+        frame.appendChild(canvas);
+        const caption = document.createElement('figcaption');
+        caption.textContent = `Original page ${pageNumber} of ${pdf.numPages}`;
+        caption.style.cssText = 'font-size:11px;color:#666;margin-top:8px;';
+        frame.appendChild(caption); sourceView.appendChild(frame);
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      }
+      updateStats();
+      toggleFileMenu();
+    }
+
+    async function openDocxOriginal(file) {
+      if (!window.docx || !window.docx.renderAsync) {
+        setImportedDocument(await mammoth.convertToHtml({ arrayBuffer: await file.arrayBuffer() }).then(result => result.value), file.name);
+        return;
+      }
+      const sourceView = showOriginalSourceView(file.name, 'Rendering the DOCX source with its document styles. The original file remains unchanged.');
+      const canvas = document.createElement('div');
+      canvas.style.cssText = 'font-family:Calibri,Arial,sans-serif;';
+      sourceView.appendChild(canvas);
+      await docx.renderAsync(await file.arrayBuffer(), canvas, null, { inWrapper: false, breakPages: true, renderHeaders: true, renderFooters: true });
+      toggleFileMenu();
+    }
+
+    async function makeEditableCopy() {
+      if (!originalSourceFile) return alert('Open an original PDF or DOCX first.');
+      try {
+        const extension = (originalSourceFile.name.split('.').pop() || '').toLowerCase();
+        if (extension === 'pdf') setImportedDocument(await extractPdfHtml(originalSourceFile), originalSourceFile.name);
+        else if (extension === 'docx') {
+          if (!window.mammoth) throw new Error('Word editor could not load.');
+          const result = await mammoth.convertToHtml({ arrayBuffer: await originalSourceFile.arrayBuffer() });
+          setImportedDocument(result.value, originalSourceFile.name);
+        } else alert('This source format opens unchanged. An editable copy is currently available for PDF and DOCX.');
+      } catch (error) { alert(`Could not create an editable copy. ${error.message || ''}`); }
+    }
+
+    function downloadOriginalSource() {
+      if (!originalSourceFile) return alert('No original source is open.');
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(originalSourceFile); link.download = originalSourceFile.name; link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
     }
 
     function textToDocumentHtml(text) {
@@ -1819,6 +1900,8 @@
       const file = e.target.files[0];
       if (!file) return;
       const extension = (file.name.split('.').pop() || '').toLowerCase();
+      originalSourceFile = file;
+      originalSourceKind = extension;
       try {
         if (file.type.startsWith('image/')) {
           const src = await new Promise((resolve, reject) => {
@@ -1828,12 +1911,10 @@
             reader.readAsDataURL(file);
           });
           setImportedDocument(`<p><img src="${src}" alt="${escapeHtml(file.name)}" style="max-width:100%; height:auto;"></p><p><br></p>`, file.name);
-        } else if (extension === 'docx') {
-          if (!window.mammoth) throw new Error('Word reader could not load. Check your internet connection and try again.');
-          const result = await mammoth.convertToHtml({ arrayBuffer: await file.arrayBuffer() });
-          setImportedDocument(result.value, file.name);
         } else if (extension === 'pdf') {
-          setImportedDocument(await extractPdfHtml(file), file.name);
+          await openPdfOriginal(file);
+        } else if (extension === 'docx') {
+          await openDocxOriginal(file);
         } else if (extension === 'odt') {
           setImportedDocument(await extractOdtHtml(file), file.name);
         } else {

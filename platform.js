@@ -23,7 +23,7 @@
   root.id = 'intelli-workspace';
   root.className = 'intelli-app';
   document.body.appendChild(root);
-  document.body.classList.add('platform-active');
+  root.style.display = 'none';
 
   const icon = (name) => `<i class="fa-solid fa-${name}"></i>`;
   const escape = (value) => String(value).replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[char]);
@@ -187,6 +187,7 @@
 
   document.addEventListener('keydown', event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); openCommandPalette(); } });
   async function handleImport(event) {
+    if (!document.body.classList.contains('platform-active')) return;
     const file = event.target.files[0];
     if (!file) return;
     state.documentName = file.name;
