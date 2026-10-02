@@ -1884,36 +1884,147 @@
       originalSourceKind = null;
     }
 
-    function measureLineText(lineEl) {
-      const range = document.createRange();
-      range.selectNodeContents(lineEl);
-      const container = document.getElementById('pageContainer');
-      const scale = container && container.offsetWidth ? container.getBoundingClientRect().width / container.offsetWidth : 1;
-      return range.getBoundingClientRect().width / (scale || 1);
-    }
-
-    function fitLineInsidePage(lineEl, limit, originalWidth) {
-      if (!lineEl || !(limit > 0)) return;
-      const budget = limit;
-      let width = measureLineText(lineEl);
-      if (width > budget && budget > 20) {
-        const fontSize = parseFloat(window.getComputedStyle(lineEl).fontSize) || 14;
-        const nextSize = Math.max(7, fontSize * (budget / width));
-        if (nextSize < fontSize) {
-          const top = parseFloat(lineEl.style.top) || 0;
-          lineEl.style.top = (top + (fontSize - nextSize) * 0.5) + 'px';
-          lineEl.style.fontSize = nextSize.toFixed(2) + 'px';
-        }
+    async function convertPdfPageToHtml(page) {
+      const textContent = await page.getTextContent({ normalizeWhitespace: true });
+      if (!textContent || !textContent.items || !textContent.items.length) {
+        const viewport = page.getViewport({ scale: 1.5 });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+        return `<p style="text-align:center;"><img src="${canvas.toDataURL()}" style="max-width:100%; height:auto;" alt="Document Page"></p>`;
       }
-      lineEl.style.maxWidth = budget + 'px';
-    }
 
-    function keepLineInsidePage(lineEl, limit) {
-      const max = parseFloat(limit || lineEl.dataset.maxWidth || lineEl.style.maxWidth);
-      if (!(max > 0)) return;
-      lineEl.style.maxWidth = max + 'px';
-      lineEl.style.whiteSpace = 'pre-wrap';
-      lineEl.style.overflowWrap = 'break-word';
+      // Group items by line (cluster items with Y within 3.5px)
+      const lineMap = new Map();
+      const styles = textContent.styles || {};
+
+      textContent.items.forEach(item => {
+        const str = item.str || '';
+        if (!str.trim()) return;
+        const y = Math.round(item.transform[5]);
+        let matchedY = null;
+        for (const existingY of lineMap.keys()) {
+          if (Math.abs(existingY - y) <= 3.5) {
+            matchedY = existingY;
+            break;
+          }
+        }
+        const keyY = matchedY !== null ? matchedY : y;
+        if (!lineMap.has(keyY)) lineMap.set(keyY, []);
+
+        const fontSize = Math.round(Math.hypot(item.transform[0], item.transform[1]) * 10) / 10;
+        const fontStyle = styles[item.fontName] || {};
+        const fontName = (item.fontName || '').toLowerCase();
+        const familyName = (fontStyle.fontFamily || '').toLowerCase();
+        const isBold = fontName.includes('bold') || fontName.includes('heavy') || fontName.includes('black') ||
+                       fontName.includes('b1') || familyName.includes('bold') || (fontStyle.bold === true);
+        const isItalic = fontName.includes('italic') || fontName.includes('oblique') || familyName.includes('italic');
+
+        lineMap.get(keyY).push({
+          str,
+          x: item.transform[4],
+          fontSize,
+          isBold,
+          isItalic
+        });
+      });
+
+      const sortedYs = Array.from(lineMap.keys()).sort((a, b) => b - a);
+      const assembledLines = [];
+
+      sortedYs.forEach(y => {
+        const items = lineMap.get(y).sort((a, b) => a.x - b.x);
+        let lineText = '';
+        let maxFontSize = 0;
+        const isLineBold = items.length > 0 && items.every(it => it.isBold);
+
+        items.forEach((it, idx) => {
+          maxFontSize = Math.max(maxFontSize, it.fontSize);
+          let piece = escapeHtml(it.str);
+          if (it.isBold && !isLineBold) piece = `<strong>${piece}</strong>`;
+          if (it.isItalic) piece = `<em>${piece}</em>`;
+          if (idx > 0 && !lineText.endsWith(' ') && !it.str.startsWith(' ')) {
+            const gap = it.x - (items[idx - 1].x + (items[idx - 1].str.length * 5));
+            if (gap > 2) lineText += ' ';
+          }
+          lineText += piece;
+        });
+
+        assembledLines.push({
+          y,
+          html: lineText.trim(),
+          plain: items.map(i => i.str).join(' ').trim(),
+          fontSize: maxFontSize || 11,
+          isBold: isLineBold,
+          startX: items[0]?.x || 0
+        });
+      });
+
+      let pageHtml = '';
+      let currentPara = [];
+
+      function flushPara() {
+        if (!currentPara.length) return;
+        const fullPlain = currentPara.map(l => l.plain).join(' ').trim();
+        let fullHtml = currentPara.map(l => l.html).join(' ').trim();
+        if (!fullPlain) {
+          currentPara = [];
+          return;
+        }
+
+        const firstLine = currentPara[0];
+
+        // Format bullet points: bold and underline key terms before a dash
+        if (/^[•\-\*–]/.test(fullPlain)) {
+          fullHtml = fullHtml.replace(/^([•\-\*–]\s*)(<strong><u>)?([^–\-:]{2,45})(<\/u><\/strong>)?(\s*[–\-:]\s*)/, (m, b, u1, term, u2, dash) => {
+            return `${b}<strong><u>${term.trim()}</u></strong>${dash}`;
+          });
+        }
+
+        const isBullet = /^[•\-\*–]|\(?[0-9a-zA-Z]+[\.\)]/.test(fullPlain);
+        const isSubBullet = /^[o◦○]/.test(fullPlain);
+
+        if (firstLine.fontSize >= 17) {
+          pageHtml += `<h1 style="font-size:18pt; font-weight:bold; color:#185abd; margin-bottom:12pt; line-height:1.2;">${fullHtml}</h1>`;
+        } else if (firstLine.fontSize >= 13.5 && currentPara.length <= 2 && !isBullet) {
+          pageHtml += `<h2 style="font-size:14pt; font-weight:bold; color:#185abd; margin-top:14pt; margin-bottom:8pt; line-height:1.25;">${fullHtml}</h2>`;
+        } else if (firstLine.fontSize >= 12 && currentPara.length === 1 && firstLine.isBold && !isBullet) {
+          pageHtml += `<h3 style="font-size:12pt; font-weight:bold; color:#201f1e; margin-top:10pt; margin-bottom:6pt; line-height:1.25;">${fullHtml}</h3>`;
+        } else if (isSubBullet) {
+          pageHtml += `<p style="margin-left:28px; margin-bottom:6pt; line-height:1.35;">${fullHtml}</p>`;
+        } else if (isBullet) {
+          pageHtml += `<p style="margin-left:18px; text-indent:-18px; margin-bottom:8pt; line-height:1.35;">${fullHtml}</p>`;
+        } else {
+          pageHtml += `<p style="margin-bottom:8pt; line-height:1.35;">${fullHtml}</p>`;
+        }
+
+        currentPara = [];
+      }
+
+      for (let i = 0; i < assembledLines.length; i++) {
+        const line = assembledLines[i];
+        if (!line.plain) continue;
+
+        const isBullet = /^[•\-\*–o◦○]|\(?[0-9a-zA-Z]+[\.\)]/.test(line.plain);
+        const isHeading = line.fontSize >= 13.5;
+        const prevLine = currentPara[currentPara.length - 1];
+
+        if (prevLine) {
+          const yGap = Math.abs(prevLine.y - line.y);
+          const expectedLineHeight = (prevLine.fontSize || 11) * 1.5;
+          const isSamePara = yGap <= (expectedLineHeight * 1.9) && !isBullet && !isHeading && Math.abs(prevLine.fontSize - line.fontSize) < 2.5;
+
+          if (!isSamePara) {
+            flushPara();
+          }
+        }
+
+        currentPara.push(line);
+      }
+      flushPara();
+
+      return pageHtml || '<p><br></p>';
     }
 
     async function openPdfOriginal(file) {
@@ -1927,174 +2038,24 @@
 
       for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
         const page = await pdf.getPage(pageNumber);
-        const unscaledViewport = page.getViewport({ scale: 1 });
-        const scale = 794 / unscaledViewport.width;
-        const viewport = page.getViewport({ scale });
-
-        let pageDiv;
+        const pageHtml = await convertPdfPageToHtml(page);
         if (pageNumber === 1) {
-          pageDiv = editor;
-          pageDiv.innerHTML = '';
-          pageDiv.style.cssText = `position:relative; width:${viewport.width}px; height:${viewport.height}px; min-height:${viewport.height}px; padding:0; overflow:hidden; box-sizing:border-box; background:#ffffff; box-shadow:0 4px 16px rgba(0,0,0,0.18);`;
+          editor.innerHTML = pageHtml;
+          editor.contentEditable = 'true';
         } else {
-          pageDiv = document.createElement('div');
-          pageDiv.className = 'page';
-          pageDiv.style.cssText = `position:relative; width:${viewport.width}px; height:${viewport.height}px; min-height:${viewport.height}px; padding:0; overflow:hidden; box-sizing:border-box; background:#ffffff; box-shadow:0 4px 16px rgba(0,0,0,0.18);`;
-          pageContainer.appendChild(pageDiv);
+          const newPage = document.createElement('div');
+          newPage.className = 'page';
+          newPage.contentEditable = 'true';
+          newPage.spellcheck = true;
+          newPage.innerHTML = pageHtml;
+          pageContainer.appendChild(newPage);
         }
-
-        // 1. Render background graphics/canvas of the original PDF
-        const canvas = document.createElement('canvas');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        canvas.style.cssText = 'position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:0; display:block;';
-        pageDiv.appendChild(canvas);
-        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-
-        // 2. Extract text items and group into lines
-        const textContent = await page.getTextContent();
-        const lines = [];
-        const sortedItems = (textContent.items || []).filter(it => it.str && it.str.trim().length > 0);
-
-        sortedItems.forEach(item => {
-          const tx = item.transform;
-          const fontSize = Math.hypot(tx[2], tx[3]) * scale || Math.hypot(tx[0], tx[1]) * scale || 14;
-          const x = tx[4] * scale;
-          const baselineY = viewport.height - tx[5] * scale;
-          const y = baselineY - (fontSize * 0.88);
-          const w = (item.width || (item.str.length * fontSize * 0.55)) * scale;
-
-          const fontName = (item.fontName || '').toLowerCase();
-          const style = (textContent.styles && textContent.styles[item.fontName]) || {};
-          const isBold = fontName.includes('bold') || fontName.includes('b1') || fontName.includes('heavy') || fontName.includes('black') || ((style.fontFamily || '').toLowerCase().includes('bold'));
-          const isItalic = fontName.includes('italic') || fontName.includes('oblique');
-          const fontFamily = style.fontFamily ? `${style.fontFamily}, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif` : "'Segoe UI', Arial, sans-serif";
-
-          let matchedLine = null;
-          for (const l of lines) {
-            if (Math.abs(l.baselineY - baselineY) <= 3) {
-              const gapToRight = x - l.right;
-              const gapToLeft = l.left - (x + w);
-              const maxAllowedGap = Math.max(16, fontSize * 1.8);
-              if ((gapToRight >= -5 && gapToRight <= maxAllowedGap) || (gapToLeft >= -5 && gapToLeft <= maxAllowedGap)) {
-                matchedLine = l;
-                break;
-              }
-            }
-          }
-
-          if (matchedLine) {
-            matchedLine.items.push({ str: item.str, x, w, fontSize, isBold, isItalic });
-            matchedLine.left = Math.min(matchedLine.left, x);
-            matchedLine.right = Math.max(matchedLine.right, x + w);
-            matchedLine.top = Math.min(matchedLine.top, y);
-            matchedLine.bottom = Math.max(matchedLine.bottom, y + fontSize);
-            matchedLine.fontSize = Math.max(matchedLine.fontSize, fontSize);
-            matchedLine.isBold = matchedLine.isBold || isBold;
-            matchedLine.isItalic = matchedLine.isItalic || isItalic;
-          } else {
-            lines.push({
-              baselineY,
-              top: y,
-              bottom: y + fontSize,
-              left: x,
-              right: x + w,
-              fontSize,
-              isBold,
-              isItalic,
-              fontFamily,
-              items: [{ str: item.str, x, w, fontSize, isBold, isItalic }]
-            });
-          }
-        });
-
-        // Assemble full line text
-        lines.forEach(line => {
-          line.items.sort((a, b) => a.x - b.x);
-          let fullText = '';
-          for (let idx = 0; idx < line.items.length; idx++) {
-            const it = line.items[idx];
-            if (idx > 0) {
-              const prev = line.items[idx - 1];
-              const gap = it.x - (prev.x + prev.w);
-              if (gap > 1.5 && !fullText.endsWith(' ') && !it.str.startsWith(' ')) {
-                fullText += ' ';
-              }
-            }
-            fullText += it.str;
-          }
-          line.text = fullText;
-          line.width = Math.max(line.right - line.left, 10);
-          line.height = Math.max(line.bottom - line.top, line.fontSize);
-        });
-
-        // 3. Erase text from the canvas so there is ZERO double text
-        const ctx = canvas.getContext('2d');
-        lines.forEach(line => {
-          try {
-            const sampleX = Math.max(0, Math.min(canvas.width - 2, Math.round(line.left - 2)));
-            const sampleY = Math.max(0, Math.min(canvas.height - 2, Math.round(line.top - 2)));
-            const p = ctx.getImageData(sampleX, sampleY, 1, 1).data;
-            ctx.fillStyle = `rgb(${p[0]}, ${p[1]}, ${p[2]})`;
-          } catch (e) {
-            ctx.fillStyle = '#ffffff';
-          }
-          ctx.fillRect(Math.max(0, line.left - 2), Math.max(0, line.top - 2), line.width + 4, line.height + 4);
-        });
-
-        // 4. Create editable text layer directly on top
-        const textLayer = document.createElement('div');
-        textLayer.className = 'pdf-text-layer';
-        textLayer.style.cssText = 'position:absolute; inset:0; overflow:hidden; z-index:2;';
-        pageDiv.appendChild(textLayer);
-
-        lines.forEach(line => {
-          if (!line.text.trim()) return;
-          const lineEl = document.createElement('div');
-          lineEl.className = 'pdf-editable-line';
-          lineEl.contentEditable = 'true';
-          lineEl.spellcheck = false;
-          lineEl.textContent = line.text;
-          const maxAvailableWidth = Math.max(12, viewport.width - line.left - 4);
-          lineEl.style.cssText = `
-            position: absolute;
-            left: ${line.left}px;
-            top: ${line.top}px;
-            font-size: ${line.fontSize}px;
-            font-family: ${line.fontFamily};
-            font-weight: ${line.isBold ? 'bold' : 'normal'};
-            font-style: ${line.isItalic ? 'italic' : 'normal'};
-            color: #000000;
-            line-height: 1.15;
-            white-space: pre-wrap;
-            word-break: break-word;
-            overflow-wrap: break-word;
-            cursor: text;
-            outline: none;
-            border: none;
-            background: transparent;
-            margin: 0;
-            padding: 0;
-            user-select: text;
-            min-width: 8px;
-            max-width: ${maxAvailableWidth}px;
-            box-sizing: border-box;
-          `;
-
-          lineEl.addEventListener('input', () => {
-            keepLineInsidePage(lineEl, maxAvailableWidth);
-            updateStats();
-            autoSaveDraft();
-          });
-
-          textLayer.appendChild(lineEl);
-          fitLineInsidePage(lineEl, maxAvailableWidth, line.width);
-        });
       }
 
       updateStats();
       updatePageCount();
       toggleFileMenu(false);
+      editor.focus();
     }
 
     async function openDocxOriginal(file) {
@@ -2301,24 +2262,16 @@
             clearOriginalSourceView();
             list.forEach((item, idx) => {
               const html = typeof item === 'string' ? item : (item.html || '');
-              const style = typeof item === 'object' && item.style ? item.style : '';
               if (idx === 0) {
                 editor.innerHTML = html;
-                if (style) editor.setAttribute('style', style);
               } else {
                 const newPage = document.createElement('div');
                 newPage.className = 'page';
                 newPage.contentEditable = 'true';
                 newPage.spellcheck = true;
                 newPage.innerHTML = html;
-                if (style) newPage.setAttribute('style', style);
                 document.getElementById('pageContainer').appendChild(newPage);
               }
-            });
-            document.querySelectorAll('.pdf-editable-line').forEach(lineEl => {
-              const layer = lineEl.parentElement;
-              const limit = Math.max(8, ((layer && layer.clientWidth) || 794) - (parseFloat(lineEl.style.left) || 0) - 4);
-              fitLineInsidePage(lineEl, limit, 0);
             });
             updateStats();
             return;
