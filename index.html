@@ -918,7 +918,7 @@
   </nav>
 
   <!-- Workspace Canvas -->
-  <main class="workspace" onclick="focusEditor()">
+  <main class="workspace" onclick="focusEditor(event)">
     <!-- Top Horizontal Ruler -->
     <div class="ruler-container" id="ruler">
       <div class="ruler-marks"></div>
@@ -967,9 +967,10 @@
       autoLoadDraft();
     };
 
-    function focusEditor() {
+    function focusEditor(event) {
       if (document.getElementById('sourceDocumentView')) return;
-      if (document.activeElement !== editor) {
+      if (event && event.target && event.target.closest && event.target.closest('.page')) return;
+      if (!document.activeElement || !document.activeElement.closest('.page')) {
         editor.focus();
       }
     }
@@ -1760,27 +1761,186 @@
 
     function clearOriginalSourceView() {
       document.getElementById('sourceDocumentView')?.remove();
+      document.querySelectorAll('.pdf-edit-page').forEach(p => p.remove());
+      const pages = document.querySelectorAll('#pageContainer .page');
+      pages.forEach((p, idx) => {
+        if (idx > 0) p.remove();
+      });
       editor.style.display = '';
       originalSourceKind = null;
     }
 
-    function showOriginalSourceView(title, message = '') {
-      const pageContainer = document.getElementById('pageContainer');
-      document.getElementById('sourceDocumentView')?.remove();
-      editor.style.display = 'none';
-      const view = document.createElement('section');
-      view.id = 'sourceDocumentView';
-      view.style.cssText = 'width:21cm; min-height:8cm; background:#fff; box-shadow:0 4px 16px rgba(0,0,0,.18); padding:18px;';
-      view.innerHTML = `<div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; border-bottom:1px solid #d2d0ce; padding-bottom:12px; margin-bottom:16px;"><div><strong style="color:#185abd;">Direct edit mode</strong><div style="font-size:12px;color:#666;margin-top:4px;">${escapeHtml(title)}</div></div><span style="font-size:11px;color:#107c41;">Click text to edit</span></div>${message ? `<p style="color:#555;font-size:12px;">${escapeHtml(message)}</p>` : ''}`;
-      pageContainer.appendChild(view);
-      return view;
+    async function convertPdfPageToHtml(page) {
+      const textContent = await page.getTextContent({ normalizeWhitespace: true });
+      if (!textContent || !textContent.items || !textContent.items.length) {
+        const viewport = page.getViewport({ scale: 1.5 });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+        return `<p style="text-align:center;"><img src="${canvas.toDataURL()}" style="max-width:100%; height:auto;" alt="Document Page"></p>`;
+      }
+
+      // Group items by line (cluster items with Y within 3px)
+      const lineMap = new Map();
+      const styles = textContent.styles || {};
+
+      textContent.items.forEach(item => {
+        const str = item.str || '';
+        if (!str.trim()) return;
+        const y = Math.round(item.transform[5]);
+        let matchedY = null;
+        for (const existingY of lineMap.keys()) {
+          if (Math.abs(existingY - y) <= 3) {
+            matchedY = existingY;
+            break;
+          }
+        }
+        const keyY = matchedY !== null ? matchedY : y;
+        if (!lineMap.has(keyY)) lineMap.set(keyY, []);
+
+        const fontSize = Math.round(Math.hypot(item.transform[0], item.transform[1]) * 10) / 10;
+        const fontStyle = styles[item.fontName] || {};
+        const fontName = (item.fontName || '').toLowerCase();
+        const familyName = (fontStyle.fontFamily || '').toLowerCase();
+        const isBold = fontName.includes('bold') || fontName.includes('heavy') || fontName.includes('black') ||
+                       fontName.includes('b1') || familyName.includes('bold') || (fontStyle.bold === true);
+        const isItalic = fontName.includes('italic') || fontName.includes('oblique') || familyName.includes('italic');
+
+        lineMap.get(keyY).push({
+          str,
+          x: item.transform[4],
+          fontSize,
+          isBold,
+          isItalic
+        });
+      });
+
+      const sortedYs = Array.from(lineMap.keys()).sort((a, b) => b - a);
+      const assembledLines = [];
+
+      sortedYs.forEach(y => {
+        const items = lineMap.get(y).sort((a, b) => a.x - b.x);
+        let lineText = '';
+        let maxFontSize = 0;
+        const isLineBold = items.length > 0 && items.every(it => it.isBold);
+
+        items.forEach((it, idx) => {
+          maxFontSize = Math.max(maxFontSize, it.fontSize);
+          let piece = escapeHtml(it.str);
+          if (it.isBold && !isLineBold) piece = `<strong>${piece}</strong>`;
+          if (it.isItalic) piece = `<em>${piece}</em>`;
+          if (idx > 0 && !lineText.endsWith(' ') && !it.str.startsWith(' ') && (it.x - (items[idx-1].x + items[idx-1].str.length * 4.5)) > 2) {
+            lineText += ' ';
+          }
+          lineText += piece;
+        });
+
+        assembledLines.push({
+          y,
+          html: lineText.trim(),
+          plain: items.map(i => i.str).join(' ').trim(),
+          fontSize: maxFontSize || 11,
+          isBold: isLineBold,
+          startX: items[0]?.x || 0
+        });
+      });
+
+      let pageHtml = '';
+      let currentPara = [];
+
+      function flushPara() {
+        if (!currentPara.length) return;
+        const fullPlain = currentPara.map(l => l.plain).join(' ').trim();
+        let fullHtml = currentPara.map(l => l.html).join(' ').trim();
+        if (!fullPlain) {
+          currentPara = [];
+          return;
+        }
+
+        const firstLine = currentPara[0];
+
+        // Format bullet points: bold and underline key terms before a dash
+        if (/^[•\-\*–]/.test(fullPlain)) {
+          fullHtml = fullHtml.replace(/^([•\-\*–]\s*)(<strong><u>)?([^–\-:]{2,45})(<\/u><\/strong>)?(\s*[–\-:]\s*)/, (m, b, u1, term, u2, dash) => {
+            return `${b}<strong><u>${term.trim()}</u></strong>${dash}`;
+          });
+        }
+
+        const isBullet = /^[•\-\*–]|\(?[0-9a-zA-Z]+[\.\)]/.test(fullPlain);
+        const isSubBullet = /^[o◦○]/.test(fullPlain);
+
+        if (firstLine.fontSize >= 17) {
+          pageHtml += `<h1 style="font-size:18pt; font-weight:bold; color:#185abd; margin-bottom:12pt; line-height:1.2;">${fullHtml}</h1>`;
+        } else if (firstLine.fontSize >= 13.5 && currentPara.length <= 2 && !isBullet) {
+          pageHtml += `<h2 style="font-size:14pt; font-weight:bold; color:#185abd; margin-top:14pt; margin-bottom:8pt; line-height:1.25;">${fullHtml}</h2>`;
+        } else if (firstLine.fontSize >= 12 && currentPara.length === 1 && firstLine.isBold && !isBullet) {
+          pageHtml += `<h3 style="font-size:12pt; font-weight:bold; color:#201f1e; margin-top:10pt; margin-bottom:6pt; line-height:1.25;">${fullHtml}</h3>`;
+        } else if (isSubBullet) {
+          pageHtml += `<p style="margin-left:28px; margin-bottom:6pt; line-height:1.35;">${fullHtml}</p>`;
+        } else if (isBullet) {
+          pageHtml += `<p style="margin-left:18px; text-indent:-18px; margin-bottom:8pt; line-height:1.35;">${fullHtml}</p>`;
+        } else {
+          pageHtml += `<p style="margin-bottom:8pt; line-height:1.35; text-align:justify;">${fullHtml}</p>`;
+        }
+
+        currentPara = [];
+      }
+
+      for (let i = 0; i < assembledLines.length; i++) {
+        const line = assembledLines[i];
+        if (!line.plain) continue;
+
+        const isBullet = /^[•\-\*–o◦○]|\(?[0-9a-zA-Z]+[\.\)]/.test(line.plain);
+        const isHeading = line.fontSize >= 13.5;
+        const prevLine = currentPara[currentPara.length - 1];
+
+        if (prevLine) {
+          const yGap = Math.abs(prevLine.y - line.y);
+          const expectedLineHeight = (prevLine.fontSize || 11) * 1.5;
+          const isSamePara = yGap <= (expectedLineHeight * 1.9) && !isBullet && !isHeading && Math.abs(prevLine.fontSize - line.fontSize) < 2.5;
+
+          if (!isSamePara) {
+            flushPara();
+          }
+        }
+
+        currentPara.push(line);
+      }
+      flushPara();
+
+      return pageHtml || '<p><br></p>';
     }
 
     async function openPdfOriginal(file) {
       if (!window.pdfjsLib) throw new Error('PDF viewer could not load. Check your connection and try again.');
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      const html = await extractPdfHtml(file);
-      setImportedDocument(html, file.name);
+      clearOriginalSourceView();
+      const pageContainer = document.getElementById('pageContainer');
+      const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+      document.getElementById('docName').innerText = file.name.replace(/\.[^.]+$/, '') + '.docx';
+      updateDocTitle();
+
+      for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+        const page = await pdf.getPage(pageNumber);
+        const pageHtml = await convertPdfPageToHtml(page);
+        if (pageNumber === 1) {
+          editor.innerHTML = pageHtml;
+          editor.contentEditable = 'true';
+        } else {
+          const newPage = document.createElement('div');
+          newPage.className = 'page';
+          newPage.contentEditable = 'true';
+          newPage.spellcheck = true;
+          newPage.innerHTML = pageHtml;
+          pageContainer.appendChild(newPage);
+        }
+      }
+
+      updateStats();
+      updatePageCount();
+      toggleFileMenu();
+      editor.focus();
     }
 
     async function openDocxOriginal(file) {
@@ -1829,23 +1989,9 @@
       let html = '';
       for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
         const page = await pdf.getPage(pageNumber);
-        const content = await page.getTextContent();
-        const lines = [];
-        let lastY = null;
-        let line = '';
-        content.items.forEach(item => {
-          const y = Math.round(item.transform[5]);
-          if (lastY !== null && Math.abs(y - lastY) > 4) {
-            if (line.trim()) lines.push(line.trim());
-            line = '';
-          }
-          line += item.str + (item.hasEOL ? '\n' : ' ');
-          lastY = y;
-        });
-        if (line.trim()) lines.push(line.trim());
-        html += `<h2 style="color:#185abd; font-size:12pt; margin:18px 0 8px;">Page ${pageNumber}</h2>` + textToDocumentHtml(lines.join('\n'));
+        html += await convertPdfPageToHtml(page);
       }
-      return html || '<p>This PDF does not contain selectable text. Use Insert > Pictures to keep it as an image, or scan it with OCR.</p>';
+      return html || '<p><br></p>';
     }
 
     async function extractOdtHtml(file) {
@@ -1900,7 +2046,11 @@
     }
 
     function saveDoc() {
-      const content = editor.innerHTML;
+      const pages = document.querySelectorAll('#pageContainer .page');
+      let content = '';
+      pages.forEach(p => {
+        content += `<div style="page-break-after:always; margin-bottom:30px;">${p.innerHTML}</div>`;
+      });
       const html = `
         <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
         <head><meta charset='utf-8'><title>${document.getElementById('docName').innerText}</title></head>
@@ -1923,8 +2073,9 @@
 
     /* Stats & Live Toolbar Updates */
     function updateStats() {
-      const activeSurface = document.getElementById('sourceDocumentView') || editor;
-      const text = activeSurface.innerText || '';
+      const pages = document.querySelectorAll('#pageContainer .page');
+      let text = '';
+      pages.forEach(p => { text += (p.innerText || '') + ' '; });
       const words = text.trim() ? text.trim().split(/\s+/).length : 0;
       const chars = text.length;
       document.getElementById('wordCount').innerText = `Words: ${words}`;
@@ -1971,13 +2122,41 @@
     /* Auto-Save & Recovery */
     function autoSaveDraft() {
       try {
-        const activeSurface = document.getElementById('sourceDocumentView') || editor;
-        localStorage.setItem('word_doc_draft', activeSurface.innerHTML);
+        const pages = document.querySelectorAll('#pageContainer .page');
+        const pagesData = Array.from(pages).map(p => p.innerHTML);
+        localStorage.setItem('word_doc_draft_pages', JSON.stringify(pagesData));
+        localStorage.setItem('word_doc_name', document.getElementById('docName').innerText);
       } catch (e) {}
     }
 
     function autoLoadDraft() {
       try {
+        const savedPages = localStorage.getItem('word_doc_draft_pages');
+        const savedName = localStorage.getItem('word_doc_name');
+        if (savedName) {
+          document.getElementById('docName').innerText = savedName;
+          updateDocTitle();
+        }
+        if (savedPages) {
+          const list = JSON.parse(savedPages);
+          if (list && list.length) {
+            clearOriginalSourceView();
+            list.forEach((html, idx) => {
+              if (idx === 0) {
+                editor.innerHTML = html;
+              } else {
+                const newPage = document.createElement('div');
+                newPage.className = 'page';
+                newPage.contentEditable = 'true';
+                newPage.spellcheck = true;
+                newPage.innerHTML = html;
+                document.getElementById('pageContainer').appendChild(newPage);
+              }
+            });
+            updateStats();
+            return;
+          }
+        }
         const saved = localStorage.getItem('word_doc_draft');
         if (saved && saved.trim()) {
           editor.innerHTML = saved;
@@ -1986,16 +2165,17 @@
       } catch (e) {}
     }
 
-    editor.addEventListener('keyup', () => { updateToolbarState(); updateStats(); autoSaveDraft(); });
-    editor.addEventListener('mouseup', updateToolbarState);
-    editor.addEventListener('input', () => { updateToolbarState(); updateStats(); autoSaveDraft(); });
-    editor.addEventListener('click', event => {
+    const containerEl = document.getElementById('pageContainer');
+    containerEl.addEventListener('keyup', () => { updateToolbarState(); updateStats(); autoSaveDraft(); });
+    containerEl.addEventListener('mouseup', updateToolbarState);
+    containerEl.addEventListener('input', () => { updateToolbarState(); updateStats(); autoSaveDraft(); });
+    containerEl.addEventListener('click', event => {
       if (event.target.tagName === 'IMG') selectEditorImage(event.target);
       else if (!event.target.closest('.selected-editor-image')) selectEditorImage(null);
     });
 
     // Format painter apply listener
-    editor.addEventListener('mouseup', () => {
+    containerEl.addEventListener('mouseup', () => {
       if (formatPainterFormat) {
         format('fontName', formatPainterFormat.font);
         format('fontSize', formatPainterFormat.size);
