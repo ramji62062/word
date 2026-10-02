@@ -1037,35 +1037,61 @@
       </div>
     </div>
 
-    <!-- 3. DRAW TAB TOOLBAR -->
+    <!-- 3. DRAW / ANNOTATE TAB TOOLBAR -->
     <div class="ribbon-toolbar" id="toolbar-draw" style="display: none;">
       <div class="ribbon-group">
         <div class="ribbon-row" style="margin-bottom:0; gap:8px;">
-          <button class="toolbar-btn" onclick="toggleDrawingTool('pen')" onmousedown="event.preventDefault()">
+          <button class="toolbar-btn" onclick="window.annotationEngine.setMode('pen', '#185abd')" onmousedown="event.preventDefault()">
             <i class="fa-solid fa-pen" style="font-size: 20px; color: #185abd;"></i>
-            <span>Black Pen</span>
+            <span>Pen</span>
           </button>
-          <button class="toolbar-btn" onclick="toggleDrawingTool('red-pen')" onmousedown="event.preventDefault()">
-            <i class="fa-solid fa-pen" style="font-size: 20px; color: #d13438;"></i>
-            <span>Red Pen</span>
-          </button>
-          <button class="toolbar-btn" onclick="toggleDrawingTool('highlighter')" onmousedown="event.preventDefault()">
+          <button class="toolbar-btn" onclick="window.annotationEngine.setMode('highlight', '#fce100')" onmousedown="event.preventDefault()">
             <i class="fa-solid fa-highlighter" style="font-size: 20px; color: #fce100;"></i>
-            <span>Highlighter</span>
+            <span>Highlight</span>
           </button>
-          <button class="toolbar-btn" onclick="toggleDrawingTool('eraser')" onmousedown="event.preventDefault()">
-            <i class="fa-solid fa-eraser" style="font-size: 20px; color: #797775;"></i>
-            <span>Eraser</span>
+          <button class="toolbar-btn" onclick="window.annotationEngine.setMode('squiggly', '#d13438')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-wave-square" style="font-size: 20px; color: #d13438;"></i>
+            <span>Squiggly</span>
           </button>
         </div>
-        <div class="ribbon-group-label">Pens</div>
+        <div class="ribbon-group-label">Markup</div>
       </div>
+      
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:8px;">
+          <button class="toolbar-btn" onclick="window.annotationEngine.setMode('sticky')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-note-sticky" style="font-size: 20px; color: #ffb900;"></i>
+            <span>Sticky Note</span>
+          </button>
+          <button class="toolbar-btn" onclick="window.annotationEngine.setMode('typewriter', '#000')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-t" style="font-size: 20px; color: #000;"></i>
+            <span>Text Box</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Comments</div>
+      </div>
+
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:8px;">
+          <button class="toolbar-btn" onclick="window._currentStampText='APPROVED'; window.annotationEngine.setMode('stamp')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-stamp" style="font-size: 20px; color: #107c41;"></i>
+            <span>Approved</span>
+          </button>
+          <button class="toolbar-btn" onclick="window._currentStampText='DRAFT'; window.annotationEngine.setMode('stamp')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-stamp" style="font-size: 20px; color: #d13438;"></i>
+            <span>Draft</span>
+          </button>
+          <button class="toolbar-btn" onclick="window._currentStampText='CONFIDENTIAL'; window.annotationEngine.setMode('stamp')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-stamp" style="font-size: 20px; color: #0078d4;"></i>
+            <span>Confidential</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Stamps</div>
+      </div>
+
       <div class="ribbon-group"><div class="ribbon-row" style="margin-bottom:0; gap:6px;">
-        <input type="color" class="toolbar-color" id="drawColor" value="#185abd" title="Pen color">
-        <input type="range" id="drawSize" min="1" max="24" value="3" title="Pen size" style="width:72px;">
-        <button class="toolbar-btn" onclick="undoDrawing()" onmousedown="event.preventDefault()"><i class="fa-solid fa-rotate-left"></i><span>Undo Stroke</span></button>
-        <button class="toolbar-btn" onclick="clearDrawing()" onmousedown="event.preventDefault()"><i class="fa-solid fa-trash-can"></i><span>Clear Canvas</span></button>
-      </div><div class="ribbon-group-label">Canvas</div></div>
+        <button class="toolbar-btn" onclick="window.annotationEngine.clearAll()" onmousedown="event.preventDefault()"><i class="fa-solid fa-trash-can"></i><span>Clear All</span></button>
+      </div><div class="ribbon-group-label">Manage</div></div>
     </div>
 
     <!-- 4. DESIGN TAB TOOLBAR -->
@@ -1073,11 +1099,11 @@
       <div class="ribbon-group">
         <div class="ribbon-row" style="margin-bottom:0; gap:8px;">
           <button class="toolbar-btn" onclick="applyWatermark('CONFIDENTIAL')" onmousedown="event.preventDefault()">
-            <i class="fa-solid fa-stamp" style="font-size: 20px; color: #d13438;"></i>
+            <i class="fa-solid fa-water" style="font-size: 20px; color: #d13438;"></i>
             <span>Confidential</span>
           </button>
           <button class="toolbar-btn" onclick="applyWatermark('DRAFT')" onmousedown="event.preventDefault()">
-            <i class="fa-solid fa-stamp" style="font-size: 20px; color: #0078d4;"></i>
+            <i class="fa-solid fa-water" style="font-size: 20px; color: #0078d4;"></i>
             <span>Draft</span>
           </button>
           <button class="toolbar-btn" onclick="applyWatermark(null)" onmousedown="event.preventDefault()">
@@ -3888,6 +3914,7 @@
       toggleFileMenu(false);
     });
   </script>
+  <script src="annotations.js"></script>
   <script src="platform.js"></script>
 </body>
 </html>
