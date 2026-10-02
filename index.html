@@ -1903,11 +1903,11 @@
         if (pageNumber === 1) {
           pageDiv = editor;
           pageDiv.innerHTML = '';
-          pageDiv.style.cssText = `position:relative; width:${viewport.width}px; height:${viewport.height}px; min-height:${viewport.height}px; padding:0; overflow:hidden; box-sizing:border-box; background:#ffffff; box-shadow:0 4px 16px rgba(0,0,0,0.18);`;
+          pageDiv.style.cssText = `position:relative; width:${viewport.width}px; height:${viewport.height}px; min-height:${viewport.height}px; max-height:${viewport.height}px; padding:0; overflow:hidden; box-sizing:border-box; background:#ffffff; box-shadow:0 4px 16px rgba(0,0,0,0.18); flex-shrink:0; margin:0 auto;`;
         } else {
           pageDiv = document.createElement('div');
           pageDiv.className = 'page';
-          pageDiv.style.cssText = `position:relative; width:${viewport.width}px; height:${viewport.height}px; min-height:${viewport.height}px; padding:0; overflow:hidden; box-sizing:border-box; background:#ffffff; box-shadow:0 4px 16px rgba(0,0,0,0.18);`;
+          pageDiv.style.cssText = `position:relative; width:${viewport.width}px; height:${viewport.height}px; min-height:${viewport.height}px; max-height:${viewport.height}px; padding:0; overflow:hidden; box-sizing:border-box; background:#ffffff; box-shadow:0 4px 16px rgba(0,0,0,0.18); flex-shrink:0; margin:0 auto;`;
           pageContainer.appendChild(pageDiv);
         }
 
