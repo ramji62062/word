@@ -32,7 +32,7 @@
     root.innerHTML = `
       <header class="intelli-topbar">
         <div class="intelli-brand"><span class="intelli-brand-mark">${icon('file-lines')}</span> IntelliDoc Studio</div>
-        <nav class="intelli-tabs">${views.map(view => `<button data-view="${view}" class="${state.view === view ? 'active' : ''}">${view}</button>`).join('')}</nav>
+        <nav class="intelli-tabs"><button data-open-word-editor>${icon('file-word')} Word Editor</button>${views.map(view => `<button data-view="${view}" class="${state.view === view ? 'active' : ''}">${view}</button>`).join('')}</nav>
         <button class="command-trigger" data-command-open>${icon('magnifying-glass')} Command <span>Ctrl K</span></button>
       </header>
       <div class="intelli-layout">
@@ -84,7 +84,7 @@
   function header(title, sub, actions = '') { return `<div class="workspace-header"><div><h1>${title}</h1><p>${sub}</p></div><div class="workspace-actions">${actions}</div></div>`; }
 
   function renderHome() {
-    return `${header('Workspace overview', 'A unified document, study, and assessment system.', '<button class="ui-btn" data-command-open>Command palette</button><button class="ui-btn primary" data-open-file>Open document</button>')}
+    return `${header('Workspace overview', 'A unified document, study, and assessment system.', '<button class="ui-btn" data-command-open>Command palette</button><button class="ui-btn primary" data-open-word-editor>Open Word Editor</button>')}
       <div class="overview-grid"><div class="metric"><div class="metric-label">Documents indexed</div><div class="metric-value">24</div></div><div class="metric"><div class="metric-label">Study streak</div><div class="metric-value">6 days</div></div><div class="metric"><div class="metric-label">Questions mastered</div><div class="metric-value">412</div></div><div class="metric"><div class="metric-label">Pending QA checks</div><div class="metric-value">2</div></div></div>
       <section class="workspace-card"><div class="card-head"><h2>Recent documents</h2><span>PDF, DOCX, PPTX, XLSX conversion queue</span></div>${state.documents.map(renderDocumentRow).join('')}</section>
       <section class="workspace-card"><div class="card-head"><h2>Study recommendations</h2><span>Generated from your mistakes and mastery graph</span></div><div style="padding:8px 16px;">${state.mastery.map(([topic, score]) => `<div class="topic-row"><span>${topic}</span><span>${score}% mastery</span></div>`).join('')}</div></section>`;
@@ -116,6 +116,7 @@
 
   function bindEvents() {
     root.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => { state.view = button.dataset.view; render(); }));
+    root.querySelectorAll('[data-open-word-editor]').forEach(button => button.addEventListener('click', openWordEditor));
     root.querySelectorAll('[data-command-open]').forEach(button => button.addEventListener('click', openCommandPalette));
     root.querySelectorAll('[data-open-file]').forEach(button => button.addEventListener('click', () => document.getElementById('fileDocInput')?.click()));
     root.querySelectorAll('[data-open-editor]').forEach(button => button.addEventListener('click', () => { state.documentName = button.dataset.openEditor; state.view = 'PDF Editor'; render(); }));
@@ -265,6 +266,18 @@
     }
     render();
   }
+
+  function openWordEditor() {
+    root.style.display = 'none';
+    document.body.classList.remove('platform-active');
+    window.focusEditor?.();
+  }
+
+  window.openIntelliWorkspace = () => {
+    document.body.classList.add('platform-active');
+    root.style.display = '';
+    render();
+  };
 
   document.getElementById('fileDocInput')?.addEventListener('change', handleImport);
   render();
