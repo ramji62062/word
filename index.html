@@ -24,7 +24,38 @@
       --hover: #e1dfdd;
       --active: #cde6f7;
       --active-border: #92c0e0;
+      --sidebar-bg: #f8f8f8;
+      --sidebar-border: #d2d0ce;
+      --sidebar-item-hover: #e1dfdd;
+      --ctx-bg: #ffffff;
+      --ctx-border: #c8c6c4;
+      --ctx-shadow: 0 4px 16px rgba(0,0,0,0.2);
     }
+    body.dark-theme {
+      --primary: #2b88d8;
+      --primary-dark: #1a5fa8;
+      --bg-ribbon: #2d2d2d;
+      --bg-workspace: #1e1e1e;
+      --text-main: #f0f0f0;
+      --border: #444;
+      --hover: #3a3a3a;
+      --active: #264f78;
+      --active-border: #1a5fa8;
+      --sidebar-bg: #252526;
+      --sidebar-border: #444;
+      --sidebar-item-hover: #3a3a3a;
+      --ctx-bg: #2d2d2d;
+      --ctx-border: #555;
+      --ctx-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+    body.dark-theme .page { background: #1e1e1e !important; color: #e0e0e0 !important; }
+    body.dark-theme .ribbon-toolbar { background: #2d2d2d; }
+    body.dark-theme .ribbon-tab.active { background: #2d2d2d; }
+    body.dark-theme .toolbar-btn { color: #e0e0e0; }
+    body.dark-theme .toolbar-btn i { color: #c0c0c0; }
+    body.dark-theme .toolbar-select { background: #3a3a3a; color: #e0e0e0; border-color: #555; }
+    body.dark-theme .status-bar { background: #1a3a6b; }
+    body.dark-theme .wps-left-sidebar { background: var(--sidebar-bg); border-color: var(--sidebar-border); }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -197,16 +228,8 @@
       background: transparent;
     }
 
-    /* Workspace */
-    .workspace {
-      flex: 1;
-      overflow: auto;
-      padding: 30px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      background: var(--bg-workspace);
-    }
+
+    /* Workspace — actual styles are in the sidebar section below */
 
     /* Rulers (Horizontal & Vertical) */
     .ruler-container {
@@ -442,7 +465,10 @@
       .tool-note,
       #intelli-workspace,
       .intelli-app,
-      .command-backdrop {
+      .command-backdrop,
+      .wps-left-sidebar,
+      #wpsContextMenu,
+      .wps-mini-toolbar {
         display: none !important;
         visibility: hidden !important;
         height: 0 !important;
@@ -451,6 +477,9 @@
         padding: 0 !important;
         opacity: 0 !important;
         pointer-events: none !important;
+      }
+      .wps-app-body {
+        display: block !important;
       }
       .workspace {
         padding: 0 !important;
@@ -509,6 +538,188 @@
         outline: none !important;
       }
     }
+
+    /* ============================================================
+       LEFT SIDEBAR — Page Thumbnails, Outline, Search, Layers
+       ============================================================ */
+    .wps-app-body {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      min-height: 0;
+    }
+    .wps-left-sidebar {
+      width: 200px;
+      min-width: 200px;
+      background: var(--sidebar-bg, #f8f8f8);
+      border-right: 1px solid var(--sidebar-border, #d2d0ce);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      z-index: 20;
+      transition: width 0.2s;
+      user-select: none;
+    }
+    .wps-left-sidebar.collapsed { width: 0; min-width: 0; }
+    .sidebar-tab-bar {
+      display: flex;
+      border-bottom: 1px solid var(--sidebar-border, #d2d0ce);
+      background: var(--bg-ribbon, #f3f2f1);
+      flex-shrink: 0;
+    }
+    .sidebar-tab-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 7px 2px;
+      font-size: 10px;
+      cursor: pointer;
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+    .sidebar-tab-btn i { font-size: 13px; }
+    .sidebar-tab-btn:hover { background: var(--hover); }
+    .sidebar-tab-btn.active { border-bottom-color: var(--primary); color: var(--primary); }
+    .sidebar-panel { display: none; flex: 1; overflow: auto; padding: 6px; flex-direction: column; gap: 4px; }
+    .sidebar-panel.active { display: flex; }
+
+    /* Thumbnail panel */
+    .thumb-card {
+      border: 2px solid transparent;
+      border-radius: 3px;
+      cursor: pointer;
+      padding: 4px;
+      text-align: center;
+      transition: border-color 0.1s;
+    }
+    .thumb-card:hover { border-color: var(--active-border); background: var(--hover); }
+    .thumb-card.active-page { border-color: var(--primary); }
+    .thumb-canvas {
+      width: 100%;
+      height: auto;
+      display: block;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+    }
+    .thumb-label { font-size: 9px; color: var(--text-main); opacity: 0.7; margin-top: 2px; }
+
+    /* Outline panel */
+    .outline-item {
+      padding: 4px 8px;
+      font-size: 11px;
+      cursor: pointer;
+      border-radius: 3px;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .outline-item:hover { background: var(--hover); }
+    .outline-item.level-h1 { font-weight: 700; font-size: 12px; }
+    .outline-item.level-h2 { padding-left: 18px; }
+    .outline-item.level-h3 { padding-left: 30px; font-size: 10px; opacity: 0.8; }
+
+    /* Search panel */
+    .sidebar-search-input {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 5px 7px;
+      font-size: 12px;
+      font-family: inherit;
+      background: var(--ctx-bg);
+      color: var(--text-main);
+      outline: none;
+      margin-bottom: 6px;
+    }
+    .search-result-item {
+      padding: 5px 6px;
+      font-size: 11px;
+      cursor: pointer;
+      border-radius: 3px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-main);
+    }
+    .search-result-item:hover { background: var(--hover); }
+    .search-result-item mark { background: #fce100; color: #000; border-radius: 2px; }
+
+    /* Comments panel */
+    .comment-item {
+      padding: 7px 8px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 11px;
+      margin-bottom: 4px;
+      background: var(--ctx-bg);
+    }
+    .comment-item .comment-author { font-weight: 700; font-size: 10px; color: var(--primary); }
+    .comment-item .comment-text { margin-top: 3px; color: var(--text-main); }
+
+    /* Workspace with sidebar */
+    .workspace {
+      flex: 1;
+      overflow: auto;
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: var(--bg-workspace);
+      min-width: 0;
+    }
+
+    /* ============================================================
+       RIGHT-CLICK CONTEXT MENU
+       ============================================================ */
+    .wps-context-menu {
+      position: fixed;
+      z-index: 9998;
+      background: var(--ctx-bg, #fff);
+      border: 1px solid var(--ctx-border, #c8c6c4);
+      box-shadow: var(--ctx-shadow, 0 4px 16px rgba(0,0,0,0.2));
+      border-radius: 4px;
+      padding: 4px 0;
+      min-width: 180px;
+      font-size: 13px;
+      color: var(--text-main);
+      user-select: none;
+    }
+    .ctx-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 14px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .ctx-item:hover { background: var(--hover); }
+    .ctx-item i { width: 16px; text-align: center; font-size: 13px; color: #666; }
+    .ctx-item.ctx-danger { color: #d13438; }
+    .ctx-item.ctx-danger i { color: #d13438; }
+    .ctx-separator { height: 1px; background: var(--border); margin: 4px 0; }
+    .ctx-item .ctx-shortcut { margin-left: auto; font-size: 11px; color: #a19f9d; }
+
+    /* ============================================================
+       STATUS BAR ENHANCEMENTS — view mode buttons
+       ============================================================ */
+    .status-view-btn {
+      background: transparent;
+      border: none;
+      color: white;
+      cursor: pointer;
+      padding: 2px 5px;
+      border-radius: 3px;
+      font-size: 13px;
+      opacity: 0.75;
+    }
+    .status-view-btn:hover { opacity: 1; background: rgba(255,255,255,0.15); }
+    .status-view-btn.active { opacity: 1; background: rgba(255,255,255,0.25); }
+    .status-zoom-value { min-width: 38px; text-align: right; cursor: pointer; }
+    .status-zoom-value:hover { text-decoration: underline; }
+    .status-separator { width: 1px; height: 12px; background: rgba(255,255,255,0.3); }
   </style>
 </head>
 <body>
@@ -543,14 +754,17 @@
       <li class="ribbon-tab" style="background:#185abd; color:white; font-weight:bold;" onclick="toggleFileMenu()">File</li>
       <li class="ribbon-tab active" data-tab="home" onclick="switchTab('home')">Home</li>
       <li class="ribbon-tab" data-tab="insert" onclick="switchTab('insert')">Insert</li>
-      <li class="ribbon-tab" data-tab="draw" onclick="switchTab('draw')">Draw</li>
-      <li class="ribbon-tab" data-tab="design" onclick="switchTab('design')">Design</li>
+      <li class="ribbon-tab" data-tab="edit" onclick="switchTab('edit')">Edit</li>
+      <li class="ribbon-tab" data-tab="draw" onclick="switchTab('draw')">Comment</li>
+      <li class="ribbon-tab" data-tab="design" onclick="switchTab('design')">Page</li>
       <li class="ribbon-tab" data-tab="layout" onclick="switchTab('layout')">Layout</li>
+      <li class="ribbon-tab" data-tab="convert" onclick="switchTab('convert')">Convert</li>
+      <li class="ribbon-tab" data-tab="form" onclick="switchTab('form')">Form</li>
       <li class="ribbon-tab" data-tab="references" onclick="switchTab('references')">References</li>
       <li class="ribbon-tab" data-tab="review" onclick="switchTab('review')">Review</li>
-      <li class="ribbon-tab" data-tab="advanced" onclick="switchTab('advanced')">Advanced</li>
+      <li class="ribbon-tab" data-tab="advanced" onclick="switchTab('advanced')">Tools</li>
       <li class="ribbon-tab" data-tab="student" onclick="switchTab('student')">Student AI</li>
-      <li class="ribbon-tab" data-tab="power" onclick="switchTab('power')">Power Tools</li>
+      <li class="ribbon-tab" data-tab="power" onclick="switchTab('power')">Power</li>
       <li class="ribbon-tab" data-tab="view" onclick="switchTab('view')">View</li>
     </ul>
 
@@ -1046,6 +1260,55 @@
       </div>
     </div>
 
+    <!-- EDIT TAB TOOLBAR -->
+    <div class="ribbon-toolbar" id="toolbar-edit" style="display: none;">
+      <div class="ribbon-group"><div class="ribbon-row" style="margin-bottom:0; gap:5px;">
+        <button class="toolbar-btn" onclick="findText()" onmousedown="event.preventDefault()"><i class="fa-solid fa-magnifying-glass" style="color:#185abd;"></i><span>Find</span></button>
+        <button class="toolbar-btn" onclick="replaceText()" onmousedown="event.preventDefault()"><i class="fa-solid fa-arrow-right-arrow-left" style="color:#107c41;"></i><span>Replace</span></button>
+        <button class="toolbar-btn" onclick="selectAllText()" onmousedown="event.preventDefault()"><i class="fa-regular fa-object-ungroup" style="color:#d83b01;"></i><span>Select All</span></button>
+      </div><div class="ribbon-group-label">Find</div></div>
+      <div class="ribbon-group"><div class="ribbon-row" style="margin-bottom:0; gap:5px;">
+        <button class="toolbar-btn" onclick="format('bold')" onmousedown="event.preventDefault()"><i class="fa-solid fa-bold"></i><span>Bold</span></button>
+        <button class="toolbar-btn" onclick="format('italic')" onmousedown="event.preventDefault()"><i class="fa-solid fa-italic"></i><span>Italic</span></button>
+        <button class="toolbar-btn" onclick="format('underline')" onmousedown="event.preventDefault()"><i class="fa-solid fa-underline"></i><span>Underline</span></button>
+        <button class="toolbar-btn" onclick="format('strikeThrough')" onmousedown="event.preventDefault()"><i class="fa-solid fa-strikethrough"></i><span>Strike</span></button>
+        <button class="toolbar-btn" onclick="format('removeFormat')" onmousedown="event.preventDefault()"><i class="fa-solid fa-text-slash" style="color:#d13438;"></i><span>Clear</span></button>
+      </div><div class="ribbon-group-label">Format</div></div>
+      <div class="ribbon-group"><div class="ribbon-row" style="margin-bottom:0; gap:5px;">
+        <button class="toolbar-btn" onclick="format('justifyLeft')" onmousedown="event.preventDefault()"><i class="fa-solid fa-align-left"></i><span>Left</span></button>
+        <button class="toolbar-btn" onclick="format('justifyCenter')" onmousedown="event.preventDefault()"><i class="fa-solid fa-align-center"></i><span>Center</span></button>
+        <button class="toolbar-btn" onclick="format('justifyRight')" onmousedown="event.preventDefault()"><i class="fa-solid fa-align-right"></i><span>Right</span></button>
+        <button class="toolbar-btn" onclick="format('justifyFull')" onmousedown="event.preventDefault()"><i class="fa-solid fa-align-justify"></i><span>Justify</span></button>
+      </div><div class="ribbon-group-label">Paragraph</div></div>
+    </div>
+
+    <!-- CONVERT TAB TOOLBAR -->
+    <div class="ribbon-toolbar" id="toolbar-convert" style="display: none;">
+      <div class="ribbon-group"><div class="ribbon-row" style="margin-bottom:0; gap:6px;">
+        <button class="toolbar-btn" onclick="exportToPDF()" onmousedown="event.preventDefault()"><i class="fa-solid fa-file-pdf" style="font-size:20px;color:#d13438;"></i><span>To PDF</span></button>
+        <button class="toolbar-btn" onclick="saveDoc()" onmousedown="event.preventDefault()"><i class="fa-solid fa-file-word" style="font-size:20px;color:#185abd;"></i><span>To Word</span></button>
+        <button class="toolbar-btn" onclick="exportPlainText()" onmousedown="event.preventDefault()"><i class="fa-solid fa-file-lines" style="font-size:20px;color:#107c41;"></i><span>To Text</span></button>
+      </div><div class="ribbon-group-label">Export As</div></div>
+      <div class="ribbon-group"><div class="ribbon-row" style="margin-bottom:0; gap:6px;">
+        <button class="toolbar-btn" onclick="scanPhotoToText()" onmousedown="event.preventDefault()"><i class="fa-solid fa-camera" style="font-size:20px;color:#d83b01;"></i><span>OCR Scan</span></button>
+        <button class="toolbar-btn" onclick="window.print()" onmousedown="event.preventDefault()"><i class="fa-solid fa-print" style="font-size:20px;color:#605e5c;"></i><span>Print</span></button>
+      </div><div class="ribbon-group-label">Capture</div></div>
+    </div>
+
+    <!-- FORM TAB TOOLBAR -->
+    <div class="ribbon-toolbar" id="toolbar-form" style="display: none;">
+      <div class="ribbon-group"><div class="ribbon-row" style="margin-bottom:0; gap:6px;">
+        <button class="toolbar-btn" onclick="insertFormField('text')" onmousedown="event.preventDefault()"><i class="fa-solid fa-keyboard" style="font-size:20px;color:#185abd;"></i><span>Text Field</span></button>
+        <button class="toolbar-btn" onclick="insertFormField('checkbox')" onmousedown="event.preventDefault()"><i class="fa-solid fa-square-check" style="font-size:20px;color:#107c41;"></i><span>Checkbox</span></button>
+        <button class="toolbar-btn" onclick="insertFormField('dropdown')" onmousedown="event.preventDefault()"><i class="fa-solid fa-caret-down" style="font-size:20px;color:#d83b01;"></i><span>Dropdown</span></button>
+        <button class="toolbar-btn" onclick="insertFormField('date')" onmousedown="event.preventDefault()"><i class="fa-regular fa-calendar" style="font-size:20px;color:#7b3fb6;"></i><span>Date</span></button>
+      </div><div class="ribbon-group-label">Form Controls</div></div>
+      <div class="ribbon-group"><div class="ribbon-row" style="margin-bottom:0; gap:6px;">
+        <button class="toolbar-btn" onclick="insertSignature()" onmousedown="event.preventDefault()"><i class="fa-solid fa-signature" style="font-size:20px;color:#185abd;"></i><span>Signature</span></button>
+        <button class="toolbar-btn" onclick="protectDocument()" onmousedown="event.preventDefault()"><i class="fa-solid fa-lock" style="font-size:20px;color:#d13438;"></i><span>Protect</span></button>
+      </div><div class="ribbon-group-label">Security</div></div>
+    </div>
+
     <!-- BACKSTAGE / FILE DRAWER -->
     <div id="file-drawer" class="file-drawer">
       <div style="padding: 20px; font-size: 20px; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.2);">
@@ -1065,34 +1328,142 @@
     </div>
   </nav>
 
-  <!-- Workspace Canvas -->
-  <main class="workspace" onclick="focusEditor(event)">
-    <!-- Top Horizontal Ruler -->
-    <div class="ruler-container" id="ruler">
-      <div class="ruler-marks"></div>
-    </div>
+  <!-- Right-click context menu (shared) -->
+  <div id="wpsContextMenu" class="wps-context-menu" style="display:none;">
+    <div class="ctx-item" onclick="ctxAction('cut')"><i class="fa-solid fa-scissors"></i>Cut<span class="ctx-shortcut">Ctrl+X</span></div>
+    <div class="ctx-item" onclick="ctxAction('copy')"><i class="fa-regular fa-copy"></i>Copy<span class="ctx-shortcut">Ctrl+C</span></div>
+    <div class="ctx-item" onclick="ctxAction('paste')"><i class="fa-solid fa-paste"></i>Paste<span class="ctx-shortcut">Ctrl+V</span></div>
+    <div class="ctx-separator"></div>
+    <div class="ctx-item" onclick="ctxAction('selectAll')"><i class="fa-regular fa-object-ungroup"></i>Select All<span class="ctx-shortcut">Ctrl+A</span></div>
+    <div class="ctx-item" onclick="ctxAction('find')"><i class="fa-solid fa-magnifying-glass"></i>Find<span class="ctx-shortcut">Ctrl+F</span></div>
+    <div class="ctx-separator"></div>
+    <div class="ctx-item" id="ctxEditPdf" onclick="ctxAction('editPdf')" style="display:none;"><i class="fa-solid fa-pen"></i>Edit Text</div>
+    <div class="ctx-item" onclick="ctxAction('addComment')"><i class="fa-solid fa-comment-plus"></i>Add Comment</div>
+    <div class="ctx-item" onclick="ctxAction('addLink')"><i class="fa-solid fa-link"></i>Add Link</div>
+    <div class="ctx-item" onclick="ctxAction('copyAsImage')"><i class="fa-regular fa-image"></i>Copy as Image</div>
+    <div class="ctx-separator"></div>
+    <div class="ctx-item" onclick="ctxAction('properties')"><i class="fa-solid fa-circle-info"></i>Properties</div>
+    <div class="ctx-separator"></div>
+    <div class="ctx-item ctx-danger" onclick="ctxAction('delete')"><i class="fa-solid fa-trash"></i>Delete</div>
+  </div>
 
-    <!-- Pages Container -->
-    <div class="page-container" id="pageContainer">
-      <div class="page" id="editor" contenteditable="true" spellcheck="true">
-        <p><br></p>
+  <!-- App body: sidebar + workspace -->
+  <div class="wps-app-body">
+
+    <!-- Left Sidebar -->
+    <aside class="wps-left-sidebar" id="wpsLeftSidebar">
+      <div class="sidebar-tab-bar">
+        <button class="sidebar-tab-btn active" data-panel="thumbnails" onclick="switchSidebarPanel('thumbnails')" title="Page Thumbnails">
+          <i class="fa-regular fa-file"></i>
+          <span>Pages</span>
+        </button>
+        <button class="sidebar-tab-btn" data-panel="outline" onclick="switchSidebarPanel('outline')" title="Document Outline">
+          <i class="fa-solid fa-list-ul"></i>
+          <span>Outline</span>
+        </button>
+        <button class="sidebar-tab-btn" data-panel="search" onclick="switchSidebarPanel('search')" title="Search">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <span>Search</span>
+        </button>
+        <button class="sidebar-tab-btn" data-panel="comments" onclick="switchSidebarPanel('comments')" title="Comments">
+          <i class="fa-regular fa-comment"></i>
+          <span>Notes</span>
+        </button>
+        <button class="sidebar-tab-btn" data-panel="layers" onclick="switchSidebarPanel('layers')" title="Layers">
+          <i class="fa-solid fa-layer-group"></i>
+          <span>Layers</span>
+        </button>
       </div>
-    </div>
-  </main>
+
+      <!-- Panel: Page Thumbnails -->
+      <div class="sidebar-panel active" id="panel-thumbnails">
+        <div id="thumbnailContainer" style="display:flex;flex-direction:column;gap:6px;padding:4px;"></div>
+      </div>
+
+      <!-- Panel: Document Outline -->
+      <div class="sidebar-panel" id="panel-outline">
+        <div id="outlineContainer" style="display:flex;flex-direction:column;gap:2px;padding:4px;">
+          <div style="font-size:11px;color:#a19f9d;padding:8px 6px;">No headings found. Add H1/H2/H3 to see an outline.</div>
+        </div>
+      </div>
+
+      <!-- Panel: Search -->
+      <div class="sidebar-panel" id="panel-search">
+        <div style="padding:4px;">
+          <input class="sidebar-search-input" id="sidebarSearchInput" type="text" placeholder="Search in document…" oninput="sidebarSearch(this.value)" onkeydown="if(event.key==='Enter')sidebarSearch(this.value)">
+          <div id="searchResultsContainer" style="display:flex;flex-direction:column;"></div>
+        </div>
+      </div>
+
+      <!-- Panel: Comments -->
+      <div class="sidebar-panel" id="panel-comments">
+        <div id="commentsContainer" style="display:flex;flex-direction:column;gap:4px;padding:4px;">
+          <div style="font-size:11px;color:#a19f9d;padding:8px 6px;">No comments yet. Right-click text to add a comment.</div>
+        </div>
+      </div>
+
+      <!-- Panel: Layers -->
+      <div class="sidebar-panel" id="panel-layers">
+        <div style="padding:8px;font-size:11px;display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span>Text Layer</span>
+            <button class="toolbar-btn small" onclick="toggleLayerVisibility('text')" title="Toggle text layer"><i class="fa-solid fa-eye"></i></button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span>Image Layer</span>
+            <button class="toolbar-btn small" onclick="toggleLayerVisibility('images')" title="Toggle image layer"><i class="fa-solid fa-eye"></i></button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span>Drawing Layer</span>
+            <button class="toolbar-btn small" onclick="toggleLayerVisibility('drawing')" title="Toggle drawing layer"><i class="fa-solid fa-eye"></i></button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span>Annotations</span>
+            <button class="toolbar-btn small" onclick="toggleLayerVisibility('annotations')" title="Toggle annotation layer"><i class="fa-solid fa-eye"></i></button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Workspace Canvas -->
+    <main class="workspace" id="mainWorkspace" onclick="focusEditor(event)" oncontextmenu="showContextMenu(event)">
+      <!-- Top Horizontal Ruler -->
+      <div class="ruler-container" id="ruler">
+        <div class="ruler-marks"></div>
+      </div>
+
+      <!-- Pages Container -->
+      <div class="page-container" id="pageContainer">
+        <div class="page" id="editor" contenteditable="true" spellcheck="true">
+          <p><br></p>
+        </div>
+      </div>
+    </main>
+  </div><!-- end .wps-app-body -->
 
   <!-- Status Bar (Bottom Word Bar) -->
   <footer class="status-bar">
     <div class="status-left">
+      <button class="status-btn" onclick="toggleSidebar()" title="Toggle Sidebar"><i class="fa-solid fa-sidebar" style="font-size:11px;"></i></button>
+      <div class="status-separator"></div>
       <span id="pageCount">Page 1 of 1</span>
-      <span id="wordCount">Words: 42</span>
-      <span id="charCount">Characters: 290</span>
-      <span>English (United States)</span>
+      <span id="wordCount">Words: 0</span>
+      <span id="charCount">Characters: 0</span>
+      <span id="langIndicator">English (US)</span>
     </div>
     <div class="status-right">
-      <button class="status-btn" onclick="setZoom(100)">100%</button>
-      <input type="range" min="50" max="200" value="100" style="width: 100px; cursor: pointer;" oninput="setZoom(this.value)">
-      <i class="fa-solid fa-book-open" title="Reading View" onclick="setZoom(120)"></i>
-      <i class="fa-solid fa-file-lines" title="Print Layout" onclick="window.print()"></i>
+      <button class="status-view-btn active" id="viewSingle" onclick="setViewMode('single')" title="Single Page"><i class="fa-regular fa-file"></i></button>
+      <button class="status-view-btn" id="viewDouble" onclick="setViewMode('double')" title="Double Page"><i class="fa-solid fa-file" style="font-size:10px;"></i><i class="fa-solid fa-file" style="font-size:10px;"></i></button>
+      <button class="status-view-btn" id="viewContinuous" onclick="setViewMode('continuous')" title="Continuous"><i class="fa-solid fa-bars"></i></button>
+      <button class="status-view-btn" id="viewReading" onclick="setViewMode('reading')" title="Reading Mode"><i class="fa-solid fa-book-open"></i></button>
+      <div class="status-separator"></div>
+      <button class="status-btn" onclick="fitWidth()" title="Fit Width"><i class="fa-solid fa-arrows-left-right"></i></button>
+      <button class="status-btn" onclick="fitPage()" title="Fit Page"><i class="fa-solid fa-compress"></i></button>
+      <div class="status-separator"></div>
+      <input type="range" min="50" max="300" value="100" id="zoomSlider" style="width: 90px; cursor: pointer; accent-color:#fff;" oninput="setZoom(this.value)" title="Zoom">
+      <span class="status-zoom-value" id="zoomLabel" onclick="promptZoom()">100%</span>
+      <div class="status-separator"></div>
+      <button class="status-btn" onclick="toggleTheme()" title="Toggle Light/Dark Theme"><i class="fa-solid fa-circle-half-stroke"></i></button>
     </div>
   </footer>
 
@@ -1113,7 +1484,387 @@
       document.execCommand('defaultParagraphSeparator', false, 'p');
       updateStats();
       autoLoadDraft();
+      setTimeout(() => {
+        buildThumbnails();
+        buildOutline();
+      }, 400);
     };
+
+    /* ============================================================
+       LAYER 2 — WPS UI Shell
+       ============================================================ */
+
+    // ---- Sidebar ----
+    let sidebarVisible = true;
+    function toggleSidebar() {
+      sidebarVisible = !sidebarVisible;
+      const sb = document.getElementById('wpsLeftSidebar');
+      if (sb) sb.classList.toggle('collapsed', !sidebarVisible);
+    }
+
+    function switchSidebarPanel(name) {
+      document.querySelectorAll('.sidebar-tab-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.panel === name);
+      });
+      document.querySelectorAll('.sidebar-panel').forEach(p => {
+        p.classList.toggle('active', p.id === 'panel-' + name);
+      });
+      if (name === 'thumbnails') buildThumbnails();
+      if (name === 'outline') buildOutline();
+    }
+
+    // ---- Page Thumbnails ----
+    function buildThumbnails() {
+      const container = document.getElementById('thumbnailContainer');
+      if (!container) return;
+      container.innerHTML = '';
+      const pages = document.querySelectorAll('#pageContainer .page');
+      pages.forEach((page, idx) => {
+        const card = document.createElement('div');
+        card.className = 'thumb-card' + (idx === 0 ? ' active-page' : '');
+        card.onclick = () => {
+          page.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          document.querySelectorAll('.thumb-card').forEach(c => c.classList.remove('active-page'));
+          card.classList.add('active-page');
+        };
+
+        // Try canvas thumbnail first
+        const canvas = page.querySelector('canvas');
+        if (canvas) {
+          const thumbCanvas = document.createElement('canvas');
+          const ratio = 168 / canvas.width;
+          thumbCanvas.width = 168;
+          thumbCanvas.height = Math.round(canvas.height * ratio);
+          thumbCanvas.className = 'thumb-canvas';
+          try {
+            thumbCanvas.getContext('2d').drawImage(canvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
+          } catch(e) {}
+          card.appendChild(thumbCanvas);
+        } else {
+          // HTML page preview
+          const mini = document.createElement('div');
+          mini.style.cssText = 'width:168px;height:238px;background:#fff;overflow:hidden;border:1px solid #e1dfdd;font-size:2px;line-height:1.2;padding:6px;box-sizing:border-box;';
+          mini.innerHTML = page.innerHTML;
+          card.appendChild(mini);
+        }
+        const lbl = document.createElement('div');
+        lbl.className = 'thumb-label';
+        lbl.textContent = 'Page ' + (idx + 1);
+        card.appendChild(lbl);
+        container.appendChild(card);
+      });
+    }
+
+    // ---- Document Outline ----
+    function buildOutline() {
+      const container = document.getElementById('outlineContainer');
+      if (!container) return;
+      container.innerHTML = '';
+      const headings = document.querySelectorAll('#pageContainer h1, #pageContainer h2, #pageContainer h3');
+      if (!headings.length) {
+        container.innerHTML = '<div style="font-size:11px;color:#a19f9d;padding:8px 6px;">No headings found.</div>';
+        return;
+      }
+      headings.forEach(h => {
+        const item = document.createElement('div');
+        item.className = 'outline-item level-' + h.tagName.toLowerCase();
+        item.textContent = h.textContent.trim().substring(0, 50);
+        item.onclick = () => h.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        container.appendChild(item);
+      });
+    }
+
+    // ---- Sidebar Search ----
+    function sidebarSearch(query) {
+      const container = document.getElementById('searchResultsContainer');
+      if (!container) return;
+      container.innerHTML = '';
+      if (!query || query.length < 2) return;
+
+      const pages = document.querySelectorAll('#pageContainer .page');
+      let totalFound = 0;
+
+      pages.forEach((page, pIdx) => {
+        const text = page.innerText || '';
+        const lower = text.toLowerCase();
+        const qLower = query.toLowerCase();
+        let pos = lower.indexOf(qLower);
+        while (pos !== -1 && totalFound < 50) {
+          const snippet = text.substring(Math.max(0, pos - 20), pos + query.length + 30);
+          const item = document.createElement('div');
+          item.className = 'search-result-item';
+          const highlighted = snippet.replace(new RegExp(query, 'gi'), m => `<mark>${m}</mark>`);
+          item.innerHTML = `<div style="font-size:9px;color:#a19f9d;margin-bottom:2px;">Page ${pIdx+1}</div>${highlighted}`;
+          item.onclick = () => {
+            page.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            if (window.find) window.find(query, false, false, true);
+          };
+          container.appendChild(item);
+          pos = lower.indexOf(qLower, pos + 1);
+          totalFound++;
+        }
+      });
+
+      if (totalFound === 0) {
+        container.innerHTML = '<div style="font-size:11px;color:#a19f9d;padding:6px;">No results found.</div>';
+      }
+    }
+
+    // ---- Context Menu ----
+    let contextMenuTarget = null;
+    function showContextMenu(e) {
+      e.preventDefault();
+      const menu = document.getElementById('wpsContextMenu');
+      if (!menu) return;
+      contextMenuTarget = e.target;
+
+      // Show "Edit Text" if right-clicking a PDF hit line
+      const ctxEdit = document.getElementById('ctxEditPdf');
+      if (ctxEdit) {
+        ctxEdit.style.display = (e.target.classList.contains('pdf-hit-line')) ? 'flex' : 'none';
+      }
+
+      menu.style.display = 'block';
+      const vw = window.innerWidth, vh = window.innerHeight;
+      let x = e.clientX, y = e.clientY;
+      if (x + 200 > vw) x = vw - 204;
+      if (y + menu.offsetHeight + 20 > vh) y = vh - menu.offsetHeight - 8;
+      menu.style.left = x + 'px';
+      menu.style.top = y + 'px';
+    }
+
+    function hideContextMenu() {
+      const menu = document.getElementById('wpsContextMenu');
+      if (menu) menu.style.display = 'none';
+    }
+
+    function ctxAction(action) {
+      hideContextMenu();
+      switch(action) {
+        case 'cut': document.execCommand('cut'); break;
+        case 'copy': document.execCommand('copy'); break;
+        case 'paste': document.execCommand('paste'); break;
+        case 'selectAll': document.execCommand('selectAll'); break;
+        case 'find': findText(); break;
+        case 'editPdf':
+          if (contextMenuTarget && contextMenuTarget.classList.contains('pdf-hit-line')) {
+            contextMenuTarget.click();
+          }
+          break;
+        case 'addComment':
+          const cText = prompt('Enter comment:');
+          if (cText) addComment(cText);
+          break;
+        case 'addLink':
+          insertLink();
+          break;
+        case 'copyAsImage':
+          copySelectionAsImage();
+          break;
+        case 'properties':
+          showDocumentProperties();
+          break;
+        case 'delete':
+          document.execCommand('delete');
+          break;
+      }
+    }
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#wpsContextMenu')) hideContextMenu();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') hideContextMenu();
+    });
+
+    // ---- Comments ----
+    function addComment(text) {
+      const container = document.getElementById('commentsContainer');
+      if (!container) return;
+      // Remove placeholder
+      const placeholder = container.querySelector('div[style*="color:#a19f9d"]');
+      if (placeholder) placeholder.remove();
+
+      const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const item = document.createElement('div');
+      item.className = 'comment-item';
+      item.innerHTML = `<div class="comment-author">You · ${now}</div><div class="comment-text">${text}</div>`;
+      const del = document.createElement('button');
+      del.style.cssText = 'background:none;border:none;cursor:pointer;color:#d13438;font-size:10px;margin-top:4px;';
+      del.textContent = '✕ Delete';
+      del.onclick = () => item.remove();
+      item.appendChild(del);
+      container.insertBefore(item, container.firstChild);
+
+      // Switch to comments panel
+      switchSidebarPanel('comments');
+    }
+
+    // ---- View Modes ----
+    let currentViewMode = 'single';
+    function setViewMode(mode) {
+      currentViewMode = mode;
+      const pageContainer = document.getElementById('pageContainer');
+      document.querySelectorAll('.status-view-btn').forEach(b => b.classList.remove('active'));
+      const btn = document.getElementById('view' + mode.charAt(0).toUpperCase() + mode.slice(1));
+      if (btn) btn.classList.add('active');
+
+      if (mode === 'single') {
+        pageContainer.style.display = 'flex';
+        pageContainer.style.flexDirection = 'column';
+        document.querySelectorAll('#pageContainer .page').forEach(p => {
+          p.style.transform = '';
+        });
+      } else if (mode === 'double') {
+        pageContainer.style.display = 'grid';
+        pageContainer.style.gridTemplateColumns = 'repeat(2, auto)';
+        pageContainer.style.gap = '12px';
+        document.querySelectorAll('#pageContainer .page').forEach(p => {
+          p.style.transform = 'scale(0.65)';
+          p.style.transformOrigin = 'top center';
+          p.style.margin = '-4cm 0';
+        });
+      } else if (mode === 'continuous') {
+        pageContainer.style.display = 'flex';
+        pageContainer.style.flexDirection = 'column';
+        pageContainer.style.gap = '0';
+        document.querySelectorAll('#pageContainer .page').forEach(p => {
+          p.style.transform = '';
+          p.style.marginBottom = '0';
+          p.style.borderBottom = '1px solid #888';
+        });
+      } else if (mode === 'reading') {
+        toggleZenMode();
+      }
+    }
+
+    // ---- Fit Width / Fit Page ----
+    function fitWidth() {
+      const ws = document.getElementById('mainWorkspace');
+      const pc = document.getElementById('pageContainer');
+      const firstPage = pc && pc.querySelector('.page');
+      if (!ws || !firstPage) return;
+      const available = ws.clientWidth - 80;
+      const pageW = firstPage.offsetWidth;
+      if (pageW > 0) {
+        const z = Math.floor((available / pageW) * 100);
+        setZoom(Math.max(50, Math.min(300, z)));
+      }
+    }
+
+    function fitPage() {
+      const ws = document.getElementById('mainWorkspace');
+      const firstPage = document.querySelector('#pageContainer .page');
+      if (!ws || !firstPage) return;
+      const availW = ws.clientWidth - 80;
+      const availH = ws.clientHeight - 80;
+      const zW = (availW / firstPage.offsetWidth) * 100;
+      const zH = (availH / firstPage.offsetHeight) * 100;
+      setZoom(Math.max(25, Math.min(200, Math.floor(Math.min(zW, zH)))));
+    }
+
+    // ---- Zoom ----
+    function setZoom(level) {
+      level = Math.max(25, Math.min(300, parseInt(level, 10)));
+      const scale = level / 100;
+      const pc = document.getElementById('pageContainer');
+      if (pc) {
+        pc.style.transform = `scale(${scale})`;
+        pc.style.transformOrigin = 'top center';
+      }
+      // Also rerender PDF pages if engine is active
+      if (window.wpsPdfEngine && window.wpsPdfEngine.setZoom) {
+        window.wpsPdfEngine.setZoom(scale);
+      }
+      const lbl = document.getElementById('zoomLabel');
+      if (lbl) lbl.textContent = level + '%';
+      const slider = document.getElementById('zoomSlider');
+      if (slider) slider.value = level;
+    }
+
+    function promptZoom() {
+      const v = prompt('Enter zoom level (25–300):', document.getElementById('zoomLabel')?.textContent?.replace('%','') || '100');
+      if (v) setZoom(parseInt(v, 10));
+    }
+
+    // ---- Dark/Light Theme ----
+    function toggleTheme() {
+      document.body.classList.toggle('dark-theme');
+      localStorage.setItem('wps_theme', document.body.classList.contains('dark-theme') ? 'dark' : 'light');
+    }
+    (function() {
+      if (localStorage.getItem('wps_theme') === 'dark') document.body.classList.add('dark-theme');
+    })();
+
+    // ---- Layer Visibility ----
+    function toggleLayerVisibility(layerName) {
+      const selectors = {
+        text: '.pdf-hit-line',
+        images: '#pageContainer img',
+        drawing: '.drawing-canvas',
+        annotations: '.image-caption, blockquote'
+      };
+      const sel = selectors[layerName];
+      if (!sel) return;
+      document.querySelectorAll(sel).forEach(el => {
+        el.style.visibility = el.style.visibility === 'hidden' ? 'visible' : 'hidden';
+      });
+    }
+
+    // ---- Document Properties ----
+    function showDocumentProperties() {
+      const name = document.getElementById('docName')?.innerText || 'Untitled';
+      const pages = document.querySelectorAll('#pageContainer .page').length;
+      const text = document.querySelector('#pageContainer')?.innerText || '';
+      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+      alert(`Document: ${name}\nPages: ${pages}\nWords: ${words}\nCharacters: ${text.length}\nFormat: ${window.originalSourceKind || 'DOCX'}`);
+    }
+
+    // ---- Copy as Image ----
+    function copySelectionAsImage() {
+      const sel = window.getSelection();
+      if (!sel || !sel.rangeCount) return;
+      const range = sel.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      const canvas = document.createElement('canvas');
+      canvas.width = rect.width || 200;
+      canvas.height = rect.height || 50;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#000';
+      ctx.font = '14px Calibri';
+      ctx.fillText(sel.toString().substring(0, 100), 4, 20);
+      canvas.toBlob(blob => {
+        if (!blob) return;
+        try {
+          navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        } catch(e) {}
+      });
+    }
+
+    // ---- Form Field Insert (stubs that work) ----
+    function protectDocument() {
+      const pw = prompt('Set document password (leave blank to remove):');
+      if (pw === null) return;
+      if (pw) {
+        document.querySelectorAll('#pageContainer .page').forEach(p => p.setAttribute('contenteditable', 'false'));
+        alert('Document protected. Editing disabled.');
+      } else {
+        document.querySelectorAll('#pageContainer .page').forEach(p => p.setAttribute('contenteditable', 'true'));
+        alert('Document protection removed.');
+      }
+    }
+
+    // ---- Rebuild thumbnails/outline when content changes ----
+    let thumbRebuildTimer = null;
+    function scheduleThumbRebuild() {
+      clearTimeout(thumbRebuildTimer);
+      thumbRebuildTimer = setTimeout(() => {
+        buildThumbnails();
+        buildOutline();
+      }, 1200);
+    }
 
     function focusEditor(event) {
       if (document.getElementById('sourceDocumentView')) return;
@@ -2761,9 +3512,9 @@
     }
 
     const containerEl = document.getElementById('pageContainer');
-    containerEl.addEventListener('keyup', () => { updateToolbarState(); updateStats(); autoSaveDraft(); });
+    containerEl.addEventListener('keyup', () => { updateToolbarState(); updateStats(); autoSaveDraft(); scheduleThumbRebuild(); });
     containerEl.addEventListener('mouseup', updateToolbarState);
-    containerEl.addEventListener('input', () => { updateToolbarState(); updateStats(); autoSaveDraft(); });
+    containerEl.addEventListener('input', () => { updateToolbarState(); updateStats(); autoSaveDraft(); scheduleThumbRebuild(); });
     containerEl.addEventListener('click', event => {
       if (event.target.tagName === 'IMG') selectEditorImage(event.target);
       else if (!event.target.closest('.selected-editor-image')) selectEditorImage(null);
@@ -2784,6 +3535,21 @@
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         saveDoc();
+      }
+      // Ctrl+F → sidebar search
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        switchSidebarPanel('search');
+        if (!sidebarVisible) toggleSidebar();
+        setTimeout(() => {
+          const si = document.getElementById('sidebarSearchInput');
+          if (si) si.focus();
+        }, 150);
+      }
+      // Ctrl+\\ → toggle sidebar
+      if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
+        e.preventDefault();
+        toggleSidebar();
       }
     });
 
