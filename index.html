@@ -1,0 +1,1964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Word Studio</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link href="platform.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    :root {
+      --primary: #185abd;
+      --primary-dark: #103f8a;
+      --bg-ribbon: #f3f2f1;
+      --bg-workspace: #e1dfdd;
+      --text-main: #201f1e;
+      --border: #d2d0ce;
+      --hover: #e1dfdd;
+      --active: #cde6f7;
+      --active-border: #92c0e0;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg-workspace);
+    }
+
+    /* Top Title Bar */
+    .title-bar {
+      background-color: var(--primary);
+      color: white;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      font-size: 13px;
+      user-select: none;
+    }
+    .title-left { display: flex; align-items: center; gap: 14px; }
+    .title-left i { font-size: 18px; }
+    .title-center {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      background: rgba(255,255,255,0.12);
+      padding: 4px 16px;
+      border-radius: 4px;
+    }
+    .title-right { display: flex; gap: 8px; }
+    .title-btn {
+      background: transparent;
+      border: none;
+      color: white;
+      cursor: pointer;
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .title-btn:hover { background: var(--primary-dark); }
+
+    /* Ribbon Tabs */
+    .ribbon-container {
+      background-color: var(--bg-ribbon);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+      user-select: none;
+    }
+    .ribbon-tabs {
+      display: flex;
+      list-style: none;
+      padding-left: 10px;
+      padding-top: 4px;
+      gap: 2px;
+    }
+    .ribbon-tab {
+      padding: 6px 14px;
+      cursor: pointer;
+      color: var(--text-main);
+      font-size: 13px;
+      border: 1px solid transparent;
+      border-bottom: none;
+      border-radius: 4px 4px 0 0;
+      transition: all 0.1s ease;
+    }
+    .ribbon-tab.active {
+      background-color: #fff;
+      border-color: var(--border);
+      color: var(--primary);
+      font-weight: 600;
+      border-bottom: 2px solid #fff;
+      margin-bottom: -1px;
+      z-index: 2;
+    }
+    .ribbon-tab:hover:not(.active) { background-color: var(--hover); }
+
+    /* Ribbon Toolbar */
+    .ribbon-toolbar {
+      background-color: #ffffff;
+      height: 98px;
+      display: flex;
+      align-items: center;
+      padding: 6px 12px;
+      gap: 12px;
+      border-top: 1px solid var(--border);
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+    .ribbon-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      border-right: 1px solid #edebe9;
+      padding-right: 12px;
+      height: 100%;
+      justify-content: space-between;
+      position: relative;
+    }
+    .ribbon-group-label {
+      font-size: 10.5px;
+      color: #797775;
+      margin-top: auto;
+      padding-top: 2px;
+    }
+    .ribbon-row {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      margin-bottom: 4px;
+    }
+
+    /* Toolbar Buttons */
+    .toolbar-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      padding: 4px 6px;
+      border-radius: 3px;
+      cursor: pointer;
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 36px;
+      height: 54px;
+      font-size: 11px;
+    }
+    .toolbar-btn.small {
+      height: 26px;
+      min-width: 26px;
+      flex-direction: row;
+      padding: 2px 4px;
+    }
+    .toolbar-btn i { font-size: 15px; margin-bottom: 3px; color: #323130; }
+    .toolbar-btn.small i { margin-bottom: 0; font-size: 12px; }
+    .toolbar-btn:hover { background-color: var(--hover); }
+    .toolbar-btn.active {
+      background-color: var(--active);
+      border-color: var(--active-border);
+      color: var(--primary-dark);
+    }
+    .toolbar-btn.active i { color: var(--primary-dark); }
+
+    .toolbar-select {
+      padding: 3px 5px;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      outline: none;
+      font-family: inherit;
+      font-size: 12px;
+      background: white;
+      height: 24px;
+    }
+    .toolbar-color {
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      border-radius: 2px;
+      background: transparent;
+    }
+
+    /* Workspace */
+    .workspace {
+      flex: 1;
+      overflow: auto;
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: var(--bg-workspace);
+    }
+
+    /* Rulers (Horizontal & Vertical) */
+    .ruler-container {
+      width: 21cm;
+      height: 18px;
+      background: #faf9f8;
+      border: 1px solid #d2d0ce;
+      border-bottom: none;
+      display: flex;
+      align-items: flex-end;
+      padding: 0 2.54cm;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      user-select: none;
+    }
+    .ruler-marks {
+      flex: 1;
+      height: 8px;
+      border-top: 1px solid #8a8886;
+      background: repeating-linear-gradient(90deg, #605e5c 0, #605e5c 1px, transparent 1px, transparent 0.5cm);
+    }
+
+    /* The Realistic A4 Document Page */
+    .page-container {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .page {
+      background-color: #ffffff;
+      width: 21cm; /* Standard A4 */
+      min-height: 29.7cm; /* Standard A4 */
+      padding: 2.54cm; /* Standard 1 inch margins */
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+      outline: none;
+      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+      font-size: 11pt;
+      line-height: 1.25;
+      color: #000000;
+      cursor: text;
+      position: relative;
+      box-sizing: border-box;
+      transition: all 0.2s ease;
+    }
+
+    /* Watermark effect */
+    .page.watermark::before {
+      content: attr(data-watermark);
+      position: absolute;
+      top: 40%;
+      left: 10%;
+      width: 80%;
+      font-size: 72pt;
+      font-weight: bold;
+      color: rgba(200, 200, 200, 0.3);
+      text-transform: uppercase;
+      transform: rotate(-35deg);
+      pointer-events: none;
+      text-align: center;
+      user-select: none;
+    }
+
+    .page p { margin-bottom: 8pt; }
+    .page h1 { font-size: 20pt; font-weight: bold; color: #185abd; margin-bottom: 12pt; }
+    .page h2 { font-size: 15pt; font-weight: bold; color: #185abd; margin-bottom: 10pt; }
+    .page h3 { font-size: 12.5pt; font-weight: bold; color: #201f1e; margin-bottom: 8pt; }
+    .page blockquote {
+      border-left: 3px solid #185abd;
+      padding-left: 14px;
+      color: #555;
+      font-style: italic;
+      margin: 12pt 0;
+    }
+    .page table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12pt 0;
+    }
+    .page table td, .page table th {
+      border: 1px solid #999;
+      padding: 8px 10px;
+      min-width: 40px;
+    }
+
+    /* Backstage Modal Menu */
+    .file-drawer {
+      display: none;
+      position: fixed;
+      top: 42px;
+      left: 0;
+      width: 280px;
+      height: calc(100vh - 42px);
+      background: #185abd;
+      color: white;
+      box-shadow: 4px 0 16px rgba(0,0,0,0.25);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+    }
+    .file-drawer-item {
+      padding: 14px 24px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 14px;
+      border-left: 4px solid transparent;
+      transition: all 0.15s ease;
+    }
+    .file-drawer-item:hover {
+      background: #103f8a;
+      border-left-color: white;
+    }
+
+    /* Status Bar */
+    .status-bar {
+      height: 24px;
+      background: var(--primary);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      font-size: 11px;
+      user-select: none;
+      z-index: 10;
+    }
+    .status-left, .status-right { display: flex; align-items: center; gap: 16px; }
+    .status-btn {
+      background: transparent;
+      border: none;
+      color: white;
+      cursor: pointer;
+      font-size: 11px;
+    }
+    .status-btn:hover { text-decoration: underline; }
+    .tool-note { font-size: 10px; color: #605e5c; max-width: 118px; text-align: center; line-height: 1.15; }
+    .dictate-btn { color: #b10e1e !important; }
+    .zen-mode .title-bar, .zen-mode .ribbon-container, .zen-mode .status-bar, .zen-mode .ruler-container { display: none !important; }
+    .zen-mode .workspace { padding: 0; background: #161616; }
+    .zen-mode .page { box-shadow: none; min-height: 100vh; }
+    .diff-line-add { background: #dff6df; color: #0b5d1e; }
+    .diff-line-remove { background: #fde1e1; color: #9d1111; text-decoration: line-through; }
+    .student-chat { position: fixed; right: 22px; bottom: 38px; width: min(390px, calc(100vw - 32px)); height: min(560px, calc(100vh - 90px)); background: #fff; border: 1px solid #b7c8df; box-shadow: 0 12px 32px rgba(0,0,0,.22); z-index: 2100; display: flex; flex-direction: column; border-radius: 6px; overflow: hidden; }
+    .student-chat-head { background: #185abd; color: #fff; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 600; }
+    .student-chat-log { flex: 1; overflow: auto; padding: 14px; background: #f7f9fc; display: flex; flex-direction: column; gap: 10px; }
+    .chat-message { max-width: 88%; padding: 9px 11px; font-size: 13px; line-height: 1.4; white-space: pre-wrap; border-radius: 5px; }
+    .chat-message.user { align-self: flex-end; background: #dcecff; }
+    .chat-message.assistant { align-self: flex-start; background: #fff; border: 1px solid #e1dfdd; }
+    .student-chat-compose { padding: 10px; display: flex; gap: 8px; border-top: 1px solid #d2d0ce; }
+    .student-chat-compose input { flex: 1; min-width: 0; border: 1px solid #a19f9d; padding: 8px; font: inherit; }
+    .student-chat-compose button, .student-chat-head button { border: 0; cursor: pointer; padding: 8px 10px; background: #185abd; color: #fff; }
+    .student-chat-head button { padding: 2px 5px; background: transparent; font-size: 17px; }
+    .drawing-canvas { display:block; width:100%; max-width:620px; height:260px; margin:12px 0; border:1px dashed #185abd; background:#fff; touch-action:none; }
+    .selected-editor-image { outline:3px solid #185abd; outline-offset:3px; cursor:move; }
+    .image-caption { color:#666; font-size:9pt; text-align:center; margin-top:-4px; }
+  </style>
+</head>
+<body>
+
+  <!-- Top Title Bar -->
+  <header class="title-bar">
+    <div class="title-left">
+      <i class="fa-solid fa-file-word"></i>
+      <button class="title-btn" title="Save (Ctrl+S)" onclick="saveDoc()"><i class="fa-regular fa-floppy-disk"></i></button>
+      <button class="title-btn" title="Undo (Ctrl+Z)" onclick="format('undo')"><i class="fa-solid fa-rotate-left"></i></button>
+      <button class="title-btn" title="Redo (Ctrl+Y)" onclick="format('redo')"><i class="fa-solid fa-rotate-right"></i></button>
+    </div>
+    <div class="title-center" id="docTitle">
+      <i class="fa-regular fa-file-lines"></i>
+      <span contenteditable="true" spellcheck="false" id="docName" onblur="updateDocTitle()">Document1.docx</span>
+      <span style="font-size:10px; opacity:0.8; font-weight:normal;">- Saved to Browser</span>
+    </div>
+    <div class="title-right">
+      <button class="title-btn" title="Open document" onclick="openDocPrompt()"><i class="fa-solid fa-folder-open"></i> Open</button>
+      <button class="title-btn" title="Export as PDF" onclick="exportToPDF()"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+      <button class="title-btn" title="Print Document" onclick="window.print()"><i class="fa-solid fa-print"></i></button>
+      <button class="title-btn"><i class="fa-solid fa-window-minimize"></i></button>
+      <button class="title-btn"><i class="fa-regular fa-window-maximize"></i></button>
+      <button class="title-btn"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+  </header>
+
+  <!-- Ribbon Navigation -->
+  <nav class="ribbon-container">
+    <ul class="ribbon-tabs">
+      <li class="ribbon-tab" style="background:#185abd; color:white; font-weight:bold;" onclick="toggleFileMenu()">File</li>
+      <li class="ribbon-tab active" data-tab="home" onclick="switchTab('home')">Home</li>
+      <li class="ribbon-tab" data-tab="insert" onclick="switchTab('insert')">Insert</li>
+      <li class="ribbon-tab" data-tab="draw" onclick="switchTab('draw')">Draw</li>
+      <li class="ribbon-tab" data-tab="design" onclick="switchTab('design')">Design</li>
+      <li class="ribbon-tab" data-tab="layout" onclick="switchTab('layout')">Layout</li>
+      <li class="ribbon-tab" data-tab="references" onclick="switchTab('references')">References</li>
+      <li class="ribbon-tab" data-tab="review" onclick="switchTab('review')">Review</li>
+      <li class="ribbon-tab" data-tab="advanced" onclick="switchTab('advanced')">Advanced</li>
+      <li class="ribbon-tab" data-tab="student" onclick="switchTab('student')">Student AI</li>
+      <li class="ribbon-tab" data-tab="power" onclick="switchTab('power')">Power Tools</li>
+      <li class="ribbon-tab" data-tab="view" onclick="switchTab('view')">View</li>
+    </ul>
+
+    <!-- 1. HOME TAB TOOLBAR -->
+    <div class="ribbon-toolbar" id="toolbar-home">
+      <!-- Clipboard Group -->
+      <div class="ribbon-group" style="flex-direction: row; align-items: flex-start; gap: 4px;">
+        <button class="toolbar-btn" style="height: 60px;" onclick="format('paste')" onmousedown="event.preventDefault()">
+          <i class="fa-solid fa-paste" style="font-size: 22px; color: #d9a05b;"></i>
+          <span>Paste</span>
+        </button>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <button class="toolbar-btn small" title="Cut (Ctrl+X)" onclick="format('cut')" onmousedown="event.preventDefault()"><i class="fa-solid fa-scissors"></i></button>
+          <button class="toolbar-btn small" title="Copy (Ctrl+C)" onclick="format('copy')" onmousedown="event.preventDefault()"><i class="fa-regular fa-copy"></i></button>
+          <button class="toolbar-btn small" title="Format Painter" onclick="copyFormat()" onmousedown="event.preventDefault()"><i class="fa-solid fa-paintbrush" style="color:#d9a05b;"></i></button>
+        </div>
+        <div class="ribbon-group-label">Clipboard</div>
+      </div>
+
+      <!-- Font Group -->
+      <div class="ribbon-group">
+        <div class="ribbon-row">
+          <select class="toolbar-select" id="fontName" style="width: 125px;" onchange="format('fontName', this.value)" onmousedown="event.preventDefault()">
+            <option value="Calibri" selected>Calibri</option>
+            <option value="Arial">Arial</option>
+            <option value="Times New Roman">Times New Roman</option>
+            <option value="Courier New">Courier New</option>
+            <option value="Georgia">Georgia</option>
+            <option value="Verdana">Verdana</option>
+            <option value="Comic Sans MS">Comic Sans MS</option>
+            <option value="Impact">Impact</option>
+          </select>
+          <select class="toolbar-select" id="fontSize" style="width: 50px;" onchange="format('fontSize', this.value)" onmousedown="event.preventDefault()">
+            <option value="1">8</option>
+            <option value="2">10</option>
+            <option value="3" selected>11</option>
+            <option value="4">14</option>
+            <option value="5">18</option>
+            <option value="6">24</option>
+            <option value="7">36</option>
+          </select>
+          <button class="toolbar-btn small" title="Grow Font" onclick="changeFontSize(1)" onmousedown="event.preventDefault()"><strong style="font-size:13px;">A<i class="fa-solid fa-caret-up" style="font-size:8px;"></i></strong></button>
+          <button class="toolbar-btn small" title="Shrink Font" onclick="changeFontSize(-1)" onmousedown="event.preventDefault()"><span style="font-size:11px;">A<i class="fa-solid fa-caret-down" style="font-size:8px;"></i></span></button>
+          <button class="toolbar-btn small" title="Change Case" onclick="toggleCase()" onmousedown="event.preventDefault()"><i class="fa-solid fa-font"></i></button>
+          <button class="toolbar-btn small" title="Clear All Formatting" onclick="format('removeFormat')" onmousedown="event.preventDefault()"><i class="fa-solid fa-text-slash" style="color:#d13438;"></i></button>
+        </div>
+        <div class="ribbon-row">
+          <button class="toolbar-btn small" id="btn-bold" title="Bold (Ctrl+B)" onclick="format('bold')" onmousedown="event.preventDefault()"><i class="fa-solid fa-bold"></i></button>
+          <button class="toolbar-btn small" id="btn-italic" title="Italic (Ctrl+I)" onclick="format('italic')" onmousedown="event.preventDefault()"><i class="fa-solid fa-italic"></i></button>
+          <button class="toolbar-btn small" id="btn-underline" title="Underline (Ctrl+U)" onclick="format('underline')" onmousedown="event.preventDefault()"><i class="fa-solid fa-underline"></i></button>
+          <button class="toolbar-btn small" id="btn-strike" title="Strikethrough" onclick="format('strikeThrough')" onmousedown="event.preventDefault()"><i class="fa-solid fa-strikethrough"></i></button>
+          <button class="toolbar-btn small" id="btn-sub" title="Subscript" onclick="format('subscript')" onmousedown="event.preventDefault()"><i class="fa-solid fa-subscript"></i></button>
+          <button class="toolbar-btn small" id="btn-super" title="Superscript" onclick="format('superscript')" onmousedown="event.preventDefault()"><i class="fa-solid fa-superscript"></i></button>
+          <div style="width: 1px; height: 18px; background: var(--border); margin: 0 4px;"></div>
+          <input type="color" class="toolbar-color" id="hiliteColor" value="#ffff00" oninput="format('hiliteColor', this.value)" title="Text Highlight Color">
+          <input type="color" class="toolbar-color" id="foreColor" value="#000000" oninput="format('foreColor', this.value)" title="Font Color">
+        </div>
+        <div class="ribbon-group-label">Font</div>
+      </div>
+
+      <!-- Paragraph Group -->
+      <div class="ribbon-group">
+        <div class="ribbon-row">
+          <button class="toolbar-btn small" title="Bullets" onclick="format('insertUnorderedList')" onmousedown="event.preventDefault()"><i class="fa-solid fa-list-ul"></i></button>
+          <button class="toolbar-btn small" title="Numbering" onclick="format('insertOrderedList')" onmousedown="event.preventDefault()"><i class="fa-solid fa-list-ol"></i></button>
+          <button class="toolbar-btn small" title="Decrease Indent" onclick="format('outdent')" onmousedown="event.preventDefault()"><i class="fa-solid fa-outdent"></i></button>
+          <button class="toolbar-btn small" title="Increase Indent" onclick="format('indent')" onmousedown="event.preventDefault()"><i class="fa-solid fa-indent"></i></button>
+          <button class="toolbar-btn small" title="Line Spacing 1.0" onclick="setLineSpacing('1.0')" onmousedown="event.preventDefault()"><span style="font-size:10px; font-weight:bold;">1.0</span></button>
+          <button class="toolbar-btn small" title="Line Spacing 1.5" onclick="setLineSpacing('1.5')" onmousedown="event.preventDefault()"><span style="font-size:10px; font-weight:bold;">1.5</span></button>
+          <button class="toolbar-btn small" title="Line Spacing 2.0" onclick="setLineSpacing('2.0')" onmousedown="event.preventDefault()"><span style="font-size:10px; font-weight:bold;">2.0</span></button>
+        </div>
+        <div class="ribbon-row">
+          <button class="toolbar-btn small" id="btn-justifyLeft" title="Align Left (Ctrl+L)" onclick="format('justifyLeft')" onmousedown="event.preventDefault()"><i class="fa-solid fa-align-left"></i></button>
+          <button class="toolbar-btn small" id="btn-justifyCenter" title="Center (Ctrl+E)" onclick="format('justifyCenter')" onmousedown="event.preventDefault()"><i class="fa-solid fa-align-center"></i></button>
+          <button class="toolbar-btn small" id="btn-justifyRight" title="Align Right (Ctrl+R)" onclick="format('justifyRight')" onmousedown="event.preventDefault()"><i class="fa-solid fa-align-right"></i></button>
+          <button class="toolbar-btn small" id="btn-justifyFull" title="Justify (Ctrl+J)" onclick="format('justifyFull')" onmousedown="event.preventDefault()"><i class="fa-solid fa-align-justify"></i></button>
+          <div style="width: 1px; height: 18px; background: var(--border); margin: 0 4px;"></div>
+          <button class="toolbar-btn small" title="Blockquote" onclick="applyBlockquote()" onmousedown="event.preventDefault()"><i class="fa-solid fa-quote-left"></i></button>
+          <button class="toolbar-btn small" title="Sort" onclick="sortSelectedLines()" onmousedown="event.preventDefault()"><i class="fa-solid fa-arrow-down-a-z"></i></button>
+        </div>
+        <div class="ribbon-group-label">Paragraph</div>
+      </div>
+
+      <!-- Styles Group -->
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:5px;">
+          <button class="toolbar-btn" style="min-width: 58px; height: 56px; border:1px solid #e1dfdd;" onclick="applyHeading('p')" onmousedown="event.preventDefault()">
+            <span style="font-size: 13px; font-weight: 500;">Normal</span>
+          </button>
+          <button class="toolbar-btn" style="min-width: 64px; height: 56px; border:1px solid #e1dfdd;" onclick="applyHeading('h1')" onmousedown="event.preventDefault()">
+            <span style="font-size: 14px; font-weight: bold; color: #185abd;">Heading 1</span>
+          </button>
+          <button class="toolbar-btn" style="min-width: 64px; height: 56px; border:1px solid #e1dfdd;" onclick="applyHeading('h2')" onmousedown="event.preventDefault()">
+            <span style="font-size: 12px; font-weight: bold; color: #185abd;">Heading 2</span>
+          </button>
+          <button class="toolbar-btn" style="min-width: 58px; height: 56px; border:1px solid #e1dfdd;" onclick="applyHeading('h3')" onmousedown="event.preventDefault()">
+            <span style="font-size: 11px; font-weight: bold; color: #201f1e;">Title</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Styles</div>
+      </div>
+
+      <!-- Editing Group -->
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; flex-direction:column; gap:2px;">
+          <button class="toolbar-btn small" style="width:100%; justify-content:flex-start;" onclick="findText()" onmousedown="event.preventDefault()"><i class="fa-solid fa-magnifying-glass"></i> <span style="font-size:11px; margin-left:5px;">Find</span></button>
+          <button class="toolbar-btn small" style="width:100%; justify-content:flex-start;" onclick="replaceText()" onmousedown="event.preventDefault()"><i class="fa-solid fa-arrow-right-arrow-left"></i> <span style="font-size:11px; margin-left:5px;">Replace</span></button>
+          <button class="toolbar-btn small" style="width:100%; justify-content:flex-start;" onclick="selectAllText()" onmousedown="event.preventDefault()"><i class="fa-regular fa-object-ungroup"></i> <span style="font-size:11px; margin-left:5px;">Select All</span></button>
+        </div>
+        <div class="ribbon-group-label">Editing</div>
+      </div>
+    </div>
+
+    <!-- 2. INSERT TAB TOOLBAR -->
+    <div class="ribbon-toolbar" id="toolbar-insert" style="display: none;">
+      <!-- Pages -->
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:6px;">
+          <button class="toolbar-btn" onclick="insertBlankPage()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-file-circle-plus" style="font-size: 20px; color: #185abd;"></i>
+            <span>Blank Page</span>
+          </button>
+          <button class="toolbar-btn" onclick="insertPageBreak()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-scissors" style="font-size: 20px; color: #185abd;"></i>
+            <span>Page Break</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Pages</div>
+      </div>
+
+      <!-- Tables -->
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:4px;">
+          <button class="toolbar-btn" onclick="promptInsertTable()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-table" style="font-size: 20px; color: #185abd;"></i>
+            <span>Table</span>
+          </button>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <button class="toolbar-btn small" title="Insert Row Below" onclick="insertTableRow()" onmousedown="event.preventDefault()">+ Row</button>
+            <button class="toolbar-btn small" title="Insert Column Right" onclick="insertTableCol()" onmousedown="event.preventDefault()">+ Col</button>
+            <button class="toolbar-btn small" title="Delete Row" onclick="deleteTableRow()" onmousedown="event.preventDefault()">- Row</button>
+          </div>
+        </div>
+        <div class="ribbon-group-label">Tables</div>
+      </div>
+
+      <!-- Illustrations -->
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:6px;">
+          <button class="toolbar-btn" onclick="triggerImageUpload()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-image" style="font-size: 20px; color: #2b88d8;"></i>
+            <span>Pictures</span>
+          </button>
+          <input type="file" id="imageInput" accept="image/*" style="display: none;" onchange="handleImageInsert(event)">
+          <button class="toolbar-btn" onclick="insertShape('rectangle')" onmousedown="event.preventDefault()">
+            <i class="fa-regular fa-square" style="font-size: 20px; color: #d83b01;"></i>
+            <span>Rectangle</span>
+          </button>
+          <button class="toolbar-btn" onclick="insertShape('circle')" onmousedown="event.preventDefault()">
+            <i class="fa-regular fa-circle" style="font-size: 20px; color: #107c41;"></i>
+            <span>Circle</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Illustrations</div>
+      </div>
+
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:4px;">
+          <button class="toolbar-btn small" title="Make selected image smaller" onclick="resizeSelectedImage(-10)" onmousedown="event.preventDefault()"><i class="fa-solid fa-minus"></i></button>
+          <button class="toolbar-btn small" title="Make selected image larger" onclick="resizeSelectedImage(10)" onmousedown="event.preventDefault()"><i class="fa-solid fa-plus"></i></button>
+          <button class="toolbar-btn small" title="Rotate selected image" onclick="rotateSelectedImage()" onmousedown="event.preventDefault()"><i class="fa-solid fa-rotate-right"></i></button>
+          <button class="toolbar-btn small" title="Toggle grayscale" onclick="toggleImageFilter()" onmousedown="event.preventDefault()"><i class="fa-solid fa-circle-half-stroke"></i></button>
+          <input type="color" class="toolbar-color" id="imageBorderColor" value="#185abd" onchange="setImageBorder(this.value)" title="Image border color">
+          <button class="toolbar-btn small" title="Add caption" onclick="addImageCaption()" onmousedown="event.preventDefault()"><i class="fa-solid fa-closed-captioning"></i></button>
+          <button class="toolbar-btn small" title="Delete selected image" onclick="deleteSelectedImage()" onmousedown="event.preventDefault()"><i class="fa-solid fa-trash-can" style="color:#d13438;"></i></button>
+        </div>
+        <div class="ribbon-group-label">Picture Format</div>
+      </div>
+
+      <!-- Links & Comments -->
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:6px;">
+          <button class="toolbar-btn" onclick="insertLink()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-link" style="font-size: 20px; color: #0078d4;"></i>
+            <span>Link</span>
+          </button>
+          <button class="toolbar-btn" onclick="insertBookmark()" onmousedown="event.preventDefault()">
+            <i class="fa-regular fa-bookmark" style="font-size: 20px; color: #ff8c00;"></i>
+            <span>Bookmark</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Links</div>
+      </div>
+
+      <!-- Header, Footer, Page Number -->
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:6px;">
+          <button class="toolbar-btn" onclick="insertHeader()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-heading" style="font-size: 18px;"></i>
+            <span>Header</span>
+          </button>
+          <button class="toolbar-btn" onclick="insertFooter()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-shoe-prints" style="font-size: 18px;"></i>
+            <span>Footer</span>
+          </button>
+          <button class="toolbar-btn" onclick="insertDateTime()" onmousedown="event.preventDefault()">
+            <i class="fa-regular fa-calendar-days" style="font-size: 18px; color: #107c41;"></i>
+            <span>Date & Time</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Header & Footer</div>
+      </div>
+
+      <!-- Symbols & Math -->
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:4px;">
+          <button class="toolbar-btn small" onclick="insertSymbol('©')" onmousedown="event.preventDefault()">©</button>
+          <button class="toolbar-btn small" onclick="insertSymbol('™')" onmousedown="event.preventDefault()">™</button>
+          <button class="toolbar-btn small" onclick="insertSymbol('€')" onmousedown="event.preventDefault()">€</button>
+          <button class="toolbar-btn small" onclick="insertSymbol('₹')" onmousedown="event.preventDefault()">₹</button>
+          <button class="toolbar-btn small" onclick="insertSymbol('π')" onmousedown="event.preventDefault()">π</button>
+          <button class="toolbar-btn small" onclick="insertSymbol('√')" onmousedown="event.preventDefault()">√</button>
+          <button class="toolbar-btn small" onclick="insertSymbol('∞')" onmousedown="event.preventDefault()">∞</button>
+          <button class="toolbar-btn small" onclick="insertSymbol('∑')" onmousedown="event.preventDefault()">∑</button>
+        </div>
+        <div class="ribbon-group-label">Symbols</div>
+      </div>
+    </div>
+
+    <!-- 3. DRAW TAB TOOLBAR -->
+    <div class="ribbon-toolbar" id="toolbar-draw" style="display: none;">
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:8px;">
+          <button class="toolbar-btn" onclick="toggleDrawingTool('pen')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-pen" style="font-size: 20px; color: #185abd;"></i>
+            <span>Black Pen</span>
+          </button>
+          <button class="toolbar-btn" onclick="toggleDrawingTool('red-pen')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-pen" style="font-size: 20px; color: #d13438;"></i>
+            <span>Red Pen</span>
+          </button>
+          <button class="toolbar-btn" onclick="toggleDrawingTool('highlighter')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-highlighter" style="font-size: 20px; color: #fce100;"></i>
+            <span>Highlighter</span>
+          </button>
+          <button class="toolbar-btn" onclick="toggleDrawingTool('eraser')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-eraser" style="font-size: 20px; color: #797775;"></i>
+            <span>Eraser</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Pens</div>
+      </div>
+      <div class="ribbon-group"><div class="ribbon-row" style="margin-bottom:0; gap:6px;">
+        <input type="color" class="toolbar-color" id="drawColor" value="#185abd" title="Pen color">
+        <input type="range" id="drawSize" min="1" max="24" value="3" title="Pen size" style="width:72px;">
+        <button class="toolbar-btn" onclick="undoDrawing()" onmousedown="event.preventDefault()"><i class="fa-solid fa-rotate-left"></i><span>Undo Stroke</span></button>
+        <button class="toolbar-btn" onclick="clearDrawing()" onmousedown="event.preventDefault()"><i class="fa-solid fa-trash-can"></i><span>Clear Canvas</span></button>
+      </div><div class="ribbon-group-label">Canvas</div></div>
+    </div>
+
+    <!-- 4. DESIGN TAB TOOLBAR -->
+    <div class="ribbon-toolbar" id="toolbar-design" style="display: none;">
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:8px;">
+          <button class="toolbar-btn" onclick="applyWatermark('CONFIDENTIAL')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-stamp" style="font-size: 20px; color: #d13438;"></i>
+            <span>Confidential</span>
+          </button>
+          <button class="toolbar-btn" onclick="applyWatermark('DRAFT')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-stamp" style="font-size: 20px; color: #0078d4;"></i>
+            <span>Draft</span>
+          </button>
+          <button class="toolbar-btn" onclick="applyWatermark(null)" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-ban" style="font-size: 20px; color: #605e5c;"></i>
+            <span>No Watermark</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Watermark</div>
+      </div>
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:6px;">
+          <input type="color" class="toolbar-color" value="#ffffff" onchange="setPageColor(this.value)" onmousedown="event.preventDefault()" title="Page Color">
+          <span style="font-size:11px;">Page Background Color</span>
+        </div>
+        <div class="ribbon-group-label">Page Color</div>
+      </div>
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:6px;">
+          <button class="toolbar-btn" onclick="togglePageBorder()" onmousedown="event.preventDefault()">
+            <i class="fa-regular fa-square" style="font-size: 20px; color: #185abd;"></i>
+            <span>Box Border</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Page Borders</div>
+      </div>
+    </div>
+
+    <!-- 5. LAYOUT TAB TOOLBAR -->
+    <div class="ribbon-toolbar" id="toolbar-layout" style="display: none;">
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:8px;">
+          <button class="toolbar-btn" onclick="setMargins('2.54cm')" onmousedown="event.preventDefault()">
+            <i class="fa-regular fa-square" style="font-size: 18px;"></i>
+            <span>Normal (1 in)</span>
+          </button>
+          <button class="toolbar-btn" onclick="setMargins('1.27cm')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-arrows-to-dot" style="font-size: 18px;"></i>
+            <span>Narrow (0.5 in)</span>
+          </button>
+          <button class="toolbar-btn" onclick="setMargins('3.8cm')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-arrows-split-up-and-left" style="font-size: 18px;"></i>
+            <span>Wide</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Margins</div>
+      </div>
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:8px;">
+          <button class="toolbar-btn" onclick="setOrientation('portrait')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-file" style="font-size: 18px;"></i>
+            <span>Portrait</span>
+          </button>
+          <button class="toolbar-btn" onclick="setOrientation('landscape')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-file" style="font-size: 18px; transform: rotate(90deg);"></i>
+            <span>Landscape</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Orientation</div>
+      </div>
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:8px;">
+          <button class="toolbar-btn" onclick="setPaperSize('A4')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-sheet-plastic" style="font-size: 18px;"></i>
+            <span>A4</span>
+          </button>
+          <button class="toolbar-btn" onclick="setPaperSize('Letter')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-sheet-plastic" style="font-size: 18px;"></i>
+            <span>US Letter</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Size</div>
+      </div>
+    </div>
+
+    <!-- 6. REFERENCES TAB TOOLBAR -->
+    <div class="ribbon-toolbar" id="toolbar-references" style="display: none;">
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:6px;">
+          <button class="toolbar-btn" onclick="generateTOC()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-list-check" style="font-size: 20px; color: #185abd;"></i>
+            <span>Table of Contents</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">TOC</div>
+      </div>
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:6px;">
+          <button class="toolbar-btn" onclick="insertFootnote()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-superscript" style="font-size: 20px; color: #107c41;"></i>
+            <span>Insert Footnote</span>
+          </button>
+          <button class="toolbar-btn" onclick="insertCitation()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-book-bookmark" style="font-size: 20px; color: #d83b01;"></i>
+            <span>Insert Citation</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Footnotes & Citations</div>
+      </div>
+    </div>
+
+    <!-- 7. REVIEW TAB TOOLBAR -->
+    <div class="ribbon-toolbar" id="toolbar-review" style="display: none;">
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:8px;">
+          <button class="toolbar-btn" onclick="checkSpelling()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-spell-check" style="font-size: 20px; color: #107c41;"></i>
+            <span>Spelling & Grammar</span>
+          </button>
+          <button class="toolbar-btn" onclick="showWordCountDialog()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-chart-simple" style="font-size: 20px; color: #185abd;"></i>
+            <span>Word Count</span>
+          </button>
+          <button class="toolbar-btn" onclick="readAloud()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-volume-high" style="font-size: 20px; color: #0078d4;"></i>
+            <span>Read Aloud</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Proofing</div>
+      </div>
+    </div>
+
+    <!-- 8. ADVANCED TAB TOOLBAR -->
+    <div class="ribbon-toolbar" id="toolbar-advanced" style="display: none;">
+      <div class="ribbon-group"><div class="ribbon-row" style="margin-bottom:0; gap:5px;">
+        <button class="toolbar-btn" onclick="toggleDictation()" onmousedown="event.preventDefault()"><i class="fa-solid fa-microphone dictate-btn"></i><span>Dictate</span></button>
+        <button class="toolbar-btn" onclick="polishSelection()" onmousedown="event.preventDefault()"><i class="fa-solid fa-wand-magic-sparkles" style="color:#7b3fb6;"></i><span>Polish</span></button>
+        <button class="toolbar-btn" onclick="summarizeDocument()" onmousedown="event.preventDefault()"><i class="fa-solid fa-list-ul" style="color:#107c41;"></i><span>Summarize</span></button>
+        <button class="toolbar-btn" onclick="translateSelection()" onmousedown="event.preventDefault()"><i class="fa-solid fa-language" style="color:#185abd;"></i><span>Translate</span></button>
+      </div><div class="ribbon-group-label">Write</div></div>
+      <div class="ribbon-group"><div class="ribbon-row" style="margin-bottom:0; gap:5px;">
+        <button class="toolbar-btn" onclick="scanPhotoToText()" onmousedown="event.preventDefault()"><i class="fa-solid fa-camera" style="color:#d83b01;"></i><span>Scan OCR</span></button>
+        <input type="file" id="ocrInput" accept="image/*" style="display:none" onchange="runOcr(event)">
+        <button class="toolbar-btn" onclick="generateQuiz()" onmousedown="event.preventDefault()"><i class="fa-solid fa-circle-question" style="color:#b10e1e;"></i><span>Quiz</span></button>
+        <button class="toolbar-btn" onclick="createCheatsheet()" onmousedown="event.preventDefault()"><i class="fa-solid fa-note-sticky" style="color:#d9a05b;"></i><span>Cheatsheet</span></button>
+      </div><div class="ribbon-group-label">Study</div></div>
+      <div class="ribbon-group"><div class="ribbon-row" style="margin-bottom:0; gap:5px;">
+        <button class="toolbar-btn" onclick="compareDocuments()" onmousedown="event.preventDefault()"><i class="fa-solid fa-code-compare" style="color:#185abd;"></i><span>Compare</span></button>
+        <button class="toolbar-btn" onclick="insertEquation()" onmousedown="event.preventDefault()"><i class="fa-solid fa-square-root-variable" style="color:#107c41;"></i><span>Equation</span></button>
+        <button class="toolbar-btn" onclick="insertGraph()" onmousedown="event.preventDefault()"><i class="fa-solid fa-chart-line" style="color:#d83b01;"></i><span>Graph</span></button>
+        <button class="toolbar-btn" onclick="insertDiagram()" onmousedown="event.preventDefault()"><i class="fa-solid fa-diagram-project" style="color:#7b3fb6;"></i><span>Diagram</span></button>
+      </div><div class="ribbon-group-label">Visuals</div></div>
+      <div class="ribbon-group"><div class="ribbon-row" style="margin-bottom:0; gap:5px;">
+        <button class="toolbar-btn" onclick="showShareQr()" onmousedown="event.preventDefault()"><i class="fa-solid fa-qrcode" style="color:#185abd;"></i><span>Send Phone</span></button>
+        <button class="toolbar-btn" onclick="toggleZenMode()" onmousedown="event.preventDefault()"><i class="fa-solid fa-expand" style="color:#107c41;"></i><span>Focus</span></button>
+        <button class="toolbar-btn" onclick="toggleAmbientSound()" onmousedown="event.preventDefault()"><i class="fa-solid fa-headphones" style="color:#7b3fb6;"></i><span>Ambient</span></button>
+        <button class="toolbar-btn" onclick="downloadCompressed()" onmousedown="event.preventDefault()"><i class="fa-solid fa-file-zipper" style="color:#d83b01;"></i><span>Compact</span></button>
+      </div><div class="ribbon-group-label">Utility</div></div>
+      <div class="ribbon-group"><div class="ribbon-row" style="margin-bottom:0; gap:5px;">
+        <button class="toolbar-btn" onclick="insertFormattedCitation()" onmousedown="event.preventDefault()"><i class="fa-solid fa-book-bookmark" style="color:#185abd;"></i><span>Citation</span></button>
+        <button class="toolbar-btn" onclick="insertFormField()" onmousedown="event.preventDefault()"><i class="fa-solid fa-square-check" style="color:#107c41;"></i><span>Form Field</span></button>
+        <button class="toolbar-btn" onclick="setDynamicHeaderFooter()" onmousedown="event.preventDefault()"><i class="fa-solid fa-heading" style="color:#d83b01;"></i><span>Header/Footer</span></button>
+      </div><div class="ribbon-group-label">Document</div></div>
+    </div>
+
+    <!-- 9. STUDENT AI TAB TOOLBAR -->
+    <div class="ribbon-toolbar" id="toolbar-student" style="display: none;">
+      <div class="ribbon-group"><div class="ribbon-row" style="margin-bottom:0; gap:6px;">
+        <button class="toolbar-btn" onclick="extractStudyItems('questions')" onmousedown="event.preventDefault()"><i class="fa-solid fa-file-circle-question" style="color:#185abd;"></i><span>Extract Questions</span></button>
+        <button class="toolbar-btn" onclick="extractStudyItems('formulas')" onmousedown="event.preventDefault()"><i class="fa-solid fa-square-root-variable" style="color:#107c41;"></i><span>Extract Formulas</span></button>
+        <button class="toolbar-btn" onclick="extractStudyItems('keypoints')" onmousedown="event.preventDefault()"><i class="fa-solid fa-highlighter" style="color:#d83b01;"></i><span>Key Points</span></button>
+      </div><div class="ribbon-group-label">PDF Study Extractor</div></div>
+      <div class="ribbon-group"><div class="ribbon-row" style="margin-bottom:0; gap:6px;">
+        <button class="toolbar-btn" onclick="openStudyChat()" onmousedown="event.preventDefault()"><i class="fa-solid fa-comments" style="color:#185abd;"></i><span>Ask Study AI</span></button>
+        <button class="toolbar-btn" onclick="createInterviewKit()" onmousedown="event.preventDefault()"><i class="fa-solid fa-user-tie" style="color:#7b3fb6;"></i><span>Interview Kit</span></button>
+        <button class="toolbar-btn" onclick="toggleDictation()" onmousedown="event.preventDefault()"><i class="fa-solid fa-microphone dictate-btn"></i><span>Hindi / English</span></button>
+      </div><div class="ribbon-group-label">Coach</div></div>
+    </div>
+
+    <!-- 10. POWER TOOLS TAB TOOLBAR -->
+    <div class="ribbon-toolbar" id="toolbar-power" style="display: none;">
+      <div class="ribbon-group"><div class="ribbon-row" style="margin-bottom:0; gap:3px;">
+        <button class="toolbar-btn" onclick="insertTextBox()"><i class="fa-solid fa-square"></i><span>Text Box</span></button><button class="toolbar-btn" onclick="insertCallout()"><i class="fa-solid fa-comment-dots"></i><span>Callout</span></button><button class="toolbar-btn" onclick="insertCodeBlock()"><i class="fa-solid fa-code"></i><span>Code Block</span></button><button class="toolbar-btn" onclick="insertDivider()"><i class="fa-solid fa-minus"></i><span>Divider</span></button>
+      </div><div class="ribbon-group-label">Blocks</div></div>
+      <div class="ribbon-group"><div class="ribbon-row" style="margin-bottom:0; gap:3px;">
+        <button class="toolbar-btn" onclick="insertChecklist()"><i class="fa-solid fa-list-check"></i><span>Checklist</span></button><button class="toolbar-btn" onclick="insertSignature()"><i class="fa-solid fa-signature"></i><span>Signature</span></button><button class="toolbar-btn" onclick="insertPageNumbers()"><i class="fa-solid fa-list-ol"></i><span>Page No.</span></button><button class="toolbar-btn" onclick="applyDropCap()"><i class="fa-solid fa-font"></i><span>Drop Cap</span></button>
+      </div><div class="ribbon-group-label">Document</div></div>
+      <div class="ribbon-group"><div class="ribbon-row" style="margin-bottom:0; gap:3px;">
+        <button class="toolbar-btn" onclick="toggleColumns()"><i class="fa-solid fa-columns"></i><span>Columns</span></button><button class="toolbar-btn" onclick="insertCoverPage()"><i class="fa-solid fa-file-lines"></i><span>Cover Page</span></button><button class="toolbar-btn" onclick="insertMeetingNotes()"><i class="fa-solid fa-clipboard"></i><span>Meeting Notes</span></button><button class="toolbar-btn" onclick="createTimeline()"><i class="fa-solid fa-timeline"></i><span>Timeline</span></button>
+      </div><div class="ribbon-group-label">Layouts</div></div>
+      <div class="ribbon-group"><div class="ribbon-row" style="margin-bottom:0; gap:3px;">
+        <button class="toolbar-btn" onclick="showReadingTime()"><i class="fa-solid fa-clock"></i><span>Read Time</span></button><button class="toolbar-btn" onclick="cleanDocument()"><i class="fa-solid fa-broom"></i><span>Clean Up</span></button><button class="toolbar-btn" onclick="duplicateCurrentPage()"><i class="fa-solid fa-copy"></i><span>Duplicate</span></button><button class="toolbar-btn" onclick="toggleDocumentLock()"><i class="fa-solid fa-lock"></i><span>Lock Edit</span></button>
+      </div><div class="ribbon-group-label">Manage</div></div>
+      <div class="ribbon-group"><div class="ribbon-row" style="margin-bottom:0; gap:3px;">
+        <button class="toolbar-btn" onclick="saveSnapshot()"><i class="fa-solid fa-camera"></i><span>Snapshot</span></button><button class="toolbar-btn" onclick="restoreSnapshot()"><i class="fa-solid fa-clock-rotate-left"></i><span>Restore</span></button><button class="toolbar-btn" onclick="exportPlainText()"><i class="fa-solid fa-file-export"></i><span>Plain Text</span></button><button class="toolbar-btn" onclick="insertInitials()"><i class="fa-solid fa-pen-nib"></i><span>Initials</span></button>
+      </div><div class="ribbon-group-label">Save & Share</div></div>
+    </div>
+
+    <!-- 11. VIEW TAB TOOLBAR -->
+    <div class="ribbon-toolbar" id="toolbar-view" style="display: none;">
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:8px;">
+          <button class="toolbar-btn" onclick="setZoom(75)" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-magnifying-glass-minus" style="font-size: 18px;"></i>
+            <span>75%</span>
+          </button>
+          <button class="toolbar-btn" onclick="setZoom(100)" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-magnifying-glass" style="font-size: 18px;"></i>
+            <span>100%</span>
+          </button>
+          <button class="toolbar-btn" onclick="setZoom(125)" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-magnifying-glass-plus" style="font-size: 18px;"></i>
+            <span>125%</span>
+          </button>
+          <button class="toolbar-btn" onclick="setZoom(150)" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-magnifying-glass-plus" style="font-size: 18px;"></i>
+            <span>150%</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Zoom</div>
+      </div>
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:8px;">
+          <button class="toolbar-btn" onclick="toggleRuler()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-ruler-horizontal" style="font-size: 18px;"></i>
+            <span>Ruler</span>
+          </button>
+          <button class="toolbar-btn" onclick="toggleDarkMode()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-moon" style="font-size: 18px;"></i>
+            <span>Dark Page</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Show & Mode</div>
+      </div>
+    </div>
+
+    <!-- BACKSTAGE / FILE DRAWER -->
+    <div id="file-drawer" class="file-drawer">
+      <div style="padding: 20px; font-size: 20px; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.2);">
+        <i class="fa-solid fa-file-word"></i> Word File
+      </div>
+      <div class="file-drawer-item" onclick="newDoc()"><i class="fa-solid fa-file-circle-plus"></i> New Blank Document</div>
+      <div class="file-drawer-item" onclick="openDocPrompt()"><i class="fa-solid fa-folder-open"></i> Open & Edit Document</div>
+      <input type="file" id="fileDocInput" accept=".doc,.docx,.odt,.pdf,.rtf,.md,.markdown,.html,.htm,.txt,image/*" style="display: none;" onchange="loadDocFile(event)">
+      <div class="file-drawer-item" onclick="saveDoc()"><i class="fa-solid fa-floppy-disk"></i> Save (.doc / Word file)</div>
+      <div class="file-drawer-item" onclick="exportToPDF()"><i class="fa-solid fa-file-pdf"></i> Export as PDF</div>
+      <div class="file-drawer-item" onclick="window.print()"><i class="fa-solid fa-print"></i> Print Layout</div>
+      <div style="margin-top: auto; padding: 16px; border-top: 1px solid rgba(255,255,255,0.2); font-size: 12px; opacity: 0.8;">
+        Word Online Clone v2.0<br>Client-Side & Auto-Saving
+      </div>
+      <div class="file-drawer-item" onclick="toggleFileMenu()"><i class="fa-solid fa-arrow-left"></i> Back to Document</div>
+    </div>
+  </nav>
+
+  <!-- Workspace Canvas -->
+  <main class="workspace" onclick="focusEditor()">
+    <!-- Top Horizontal Ruler -->
+    <div class="ruler-container" id="ruler">
+      <div class="ruler-marks"></div>
+    </div>
+
+    <!-- Pages Container -->
+    <div class="page-container" id="pageContainer">
+      <div class="page" id="editor" contenteditable="true" spellcheck="true">
+        <p><br></p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Status Bar (Bottom Word Bar) -->
+  <footer class="status-bar">
+    <div class="status-left">
+      <span id="pageCount">Page 1 of 1</span>
+      <span id="wordCount">Words: 42</span>
+      <span id="charCount">Characters: 290</span>
+      <span>English (United States)</span>
+    </div>
+    <div class="status-right">
+      <button class="status-btn" onclick="setZoom(100)">100%</button>
+      <input type="range" min="50" max="200" value="100" style="width: 100px; cursor: pointer;" oninput="setZoom(this.value)">
+      <i class="fa-solid fa-book-open" title="Reading View" onclick="setZoom(120)"></i>
+      <i class="fa-solid fa-file-lines" title="Print Layout" onclick="window.print()"></i>
+    </div>
+  </footer>
+
+  <script>
+    const editor = document.getElementById('editor');
+    let formatPainterFormat = null;
+    let isDrawing = false;
+    let currentDrawingTool = null;
+    let drawingCanvas = null;
+    let drawingContext = null;
+    let drawingHistory = [];
+    let selectedEditorImage = null;
+
+    window.onload = () => {
+      editor.focus();
+      document.execCommand('defaultParagraphSeparator', false, 'p');
+      updateStats();
+      autoLoadDraft();
+    };
+
+    function focusEditor() {
+      if (document.activeElement !== editor) {
+        editor.focus();
+      }
+    }
+
+    function switchTab(tabName) {
+      document.getElementById('file-drawer').style.display = 'none';
+
+      document.querySelectorAll('.ribbon-tab').forEach(t => t.classList.remove('active'));
+      const activeTab = document.querySelector(`.ribbon-tab[data-tab="${tabName}"]`);
+      if (activeTab) activeTab.classList.add('active');
+
+      document.querySelectorAll('.ribbon-toolbar').forEach(tb => tb.style.display = 'none');
+      const targetToolbar = document.getElementById(`toolbar-${tabName}`);
+      if (targetToolbar) targetToolbar.style.display = 'flex';
+    }
+
+    function toggleFileMenu() {
+      const drawer = document.getElementById('file-drawer');
+      drawer.style.display = (drawer.style.display === 'flex') ? 'none' : 'flex';
+    }
+
+    function updateDocTitle() {
+      const name = document.getElementById('docName').innerText.trim();
+      document.title = (name || 'Document') + ' - Word';
+    }
+
+    /* Core Formatting Engine */
+    function format(command, value = null) {
+      document.execCommand(command, false, value);
+      editor.focus();
+      updateToolbarState();
+      updateStats();
+      autoSaveDraft();
+    }
+
+    function changeFontSize(step) {
+      const sizeSelect = document.getElementById('fontSize');
+      let cur = parseInt(sizeSelect.value, 10) || 3;
+      cur = Math.max(1, Math.min(7, cur + step));
+      sizeSelect.value = cur;
+      format('fontSize', cur);
+    }
+
+    function toggleCase() {
+      const sel = window.getSelection();
+      if (!sel.rangeCount) return;
+      const text = sel.toString();
+      if (!text) return;
+      const newText = (text === text.toUpperCase()) ? text.toLowerCase() : text.toUpperCase();
+      document.execCommand('insertText', false, newText);
+    }
+
+    function applyHeading(tag) {
+      format('formatBlock', tag);
+    }
+
+    function applyBlockquote() {
+      format('formatBlock', 'blockquote');
+    }
+
+    function setLineSpacing(val) {
+      editor.style.lineHeight = val;
+    }
+
+    function copyFormat() {
+      const font = document.queryCommandValue('fontName') || 'Calibri';
+      const size = document.queryCommandValue('fontSize') || '3';
+      const color = document.queryCommandValue('foreColor') || '#000000';
+      const bold = document.queryCommandState('bold');
+      const italic = document.queryCommandState('italic');
+      formatPainterFormat = { font, size, color, bold, italic };
+      alert('Format copied! Select any text to apply.');
+    }
+
+    /* Editing Operations */
+    function findText() {
+      const str = prompt('Enter text to search:');
+      if (str && window.find) {
+        window.find(str);
+      }
+    }
+
+    function replaceText() {
+      const findVal = prompt('Text to find:');
+      if (!findVal) return;
+      const repVal = prompt(`Replace "${findVal}" with:`) || '';
+      editor.innerHTML = editor.innerHTML.replaceAll(findVal, repVal);
+      updateStats();
+    }
+
+    function selectAllText() {
+      format('selectAll');
+    }
+
+    function sortSelectedLines() {
+      const sel = window.getSelection();
+      if (!sel.toString()) return;
+      const lines = sel.toString().split('\n').filter(l => l.trim().length > 0);
+      lines.sort();
+      document.execCommand('insertText', false, lines.join('\n'));
+    }
+
+    /* Insert Tools */
+    function insertBlankPage() {
+      const page = document.createElement('div');
+      page.className = 'page';
+      page.contentEditable = 'true';
+      page.innerHTML = '<p><br></p>';
+      document.getElementById('pageContainer').appendChild(page);
+      page.focus();
+      updatePageCount();
+    }
+
+    function insertPageBreak() {
+      format('insertHTML', '<div style="page-break-after: always; height: 16px; border-bottom: 2px dashed #b1b1b1; margin: 20px 0;"></div><p><br></p>');
+    }
+
+    function promptInsertTable() {
+      const r = parseInt(prompt('Number of rows:', '3'), 10) || 3;
+      const c = parseInt(prompt('Number of columns:', '3'), 10) || 3;
+      let html = '<table>';
+      for (let i = 0; i < r; i++) {
+        html += '<tr>';
+        for (let j = 0; j < c; j++) {
+          html += '<td>Cell</td>';
+        }
+        html += '</tr>';
+      }
+      html += '</table><p><br></p>';
+      format('insertHTML', html);
+    }
+
+    function insertTableRow() {
+      const sel = window.getSelection();
+      const td = sel.anchorNode?.parentElement?.closest('td');
+      if (!td) return alert('Place cursor inside a table first');
+      const row = td.closest('tr');
+      const newRow = row.cloneNode(true);
+      newRow.querySelectorAll('td').forEach(cell => cell.innerText = 'Cell');
+      row.after(newRow);
+    }
+
+    function insertTableCol() {
+      const sel = window.getSelection();
+      const td = sel.anchorNode?.parentElement?.closest('td');
+      if (!td) return alert('Place cursor inside a table first');
+      const table = td.closest('table');
+      const colIdx = Array.from(td.parentElement.children).indexOf(td);
+      table.querySelectorAll('tr').forEach(tr => {
+        const newTd = document.createElement('td');
+        newTd.innerText = 'Cell';
+        tr.children[colIdx].after(newTd);
+      });
+    }
+
+    function deleteTableRow() {
+      const sel = window.getSelection();
+      const row = sel.anchorNode?.parentElement?.closest('tr');
+      if (row) row.remove();
+    }
+
+    function triggerImageUpload() {
+      document.getElementById('imageInput').click();
+    }
+
+    function handleImageInsert(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        format('insertHTML', `<img class="editor-image" src="${event.target.result}" style="max-width:100%; border-radius:4px; margin:10px 0;" /><p><br></p>`);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function insertShape(type) {
+      const border = type === 'circle' ? 'border-radius: 50%;' : '';
+      const shape = `<div style="width: 140px; height: 90px; background: #cde6f7; border: 2px solid #185abd; ${border} margin: 10px 0; display: inline-block;"></div><p><br></p>`;
+      format('insertHTML', shape);
+    }
+
+    function selectEditorImage(image) {
+      if (selectedEditorImage) selectedEditorImage.classList.remove('selected-editor-image');
+      selectedEditorImage = image;
+      if (selectedEditorImage) selectedEditorImage.classList.add('selected-editor-image');
+    }
+
+    function getSelectedImage() {
+      if (!selectedEditorImage || !document.body.contains(selectedEditorImage)) {
+        alert('Click an image in the document first.');
+        return null;
+      }
+      return selectedEditorImage;
+    }
+
+    function resizeSelectedImage(change) {
+      const image = getSelectedImage(); if (!image) return;
+      const base = image.getBoundingClientRect().width || 260;
+      image.style.width = `${Math.max(80, base + change)}px`;
+      image.style.maxWidth = '100%';
+    }
+
+    function rotateSelectedImage() {
+      const image = getSelectedImage(); if (!image) return;
+      const current = Number(image.dataset.rotation || 0) + 90;
+      image.dataset.rotation = current;
+      image.style.transform = `rotate(${current}deg)`;
+      image.style.margin = '18px 12px';
+    }
+
+    function toggleImageFilter() {
+      const image = getSelectedImage(); if (!image) return;
+      image.style.filter = image.style.filter === 'grayscale(1)' ? 'none' : 'grayscale(1)';
+    }
+
+    function setImageBorder(color) {
+      const image = getSelectedImage(); if (!image) return;
+      image.style.border = `3px solid ${color}`;
+    }
+
+    function addImageCaption() {
+      const image = getSelectedImage(); if (!image) return;
+      const caption = prompt('Image caption:', image.alt || 'Figure');
+      if (caption === null) return;
+      image.alt = caption;
+      const existing = image.nextElementSibling;
+      if (existing?.classList.contains('image-caption')) existing.remove();
+      image.insertAdjacentHTML('afterend', `<p class="image-caption" contenteditable="true">${escapeHtml(caption)}</p>`);
+    }
+
+    function deleteSelectedImage() {
+      const image = getSelectedImage(); if (!image) return;
+      const caption = image.nextElementSibling;
+      if (caption?.classList.contains('image-caption')) caption.remove();
+      image.remove(); selectedEditorImage = null; updateStats();
+    }
+
+    function toggleDrawingTool(tool) {
+      currentDrawingTool = tool;
+      if (!drawingCanvas || !document.body.contains(drawingCanvas)) createDrawingCanvas();
+      drawingCanvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function createDrawingCanvas() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1200; canvas.height = 520;
+      canvas.className = 'drawing-canvas'; canvas.contentEditable = 'false';
+      format('insertHTML', '<p><br></p>');
+      const range = window.getSelection().getRangeAt(0);
+      range.insertNode(canvas);
+      range.setStartAfter(canvas); range.collapse(true);
+      drawingCanvas = canvas; drawingContext = canvas.getContext('2d'); drawingContext.lineCap = 'round';
+      canvas.addEventListener('pointerdown', startDrawing);
+      canvas.addEventListener('pointermove', drawStroke);
+      canvas.addEventListener('pointerup', endDrawing);
+      canvas.addEventListener('pointerleave', endDrawing);
+      saveDrawingState();
+    }
+
+    function pointOnCanvas(event) {
+      const rect = drawingCanvas.getBoundingClientRect();
+      return { x: (event.clientX - rect.left) * drawingCanvas.width / rect.width, y: (event.clientY - rect.top) * drawingCanvas.height / rect.height };
+    }
+
+    function startDrawing(event) {
+      if (!currentDrawingTool) currentDrawingTool = 'pen';
+      isDrawing = true; drawingCanvas.setPointerCapture(event.pointerId);
+      const point = pointOnCanvas(event); drawingContext.beginPath(); drawingContext.moveTo(point.x, point.y);
+    }
+
+    function drawStroke(event) {
+      if (!isDrawing) return;
+      const point = pointOnCanvas(event);
+      const color = document.getElementById('drawColor').value;
+      const size = Number(document.getElementById('drawSize').value);
+      drawingContext.globalCompositeOperation = currentDrawingTool === 'eraser' ? 'destination-out' : 'source-over';
+      drawingContext.strokeStyle = currentDrawingTool === 'red-pen' ? '#d13438' : currentDrawingTool === 'highlighter' ? '#fce100' : color;
+      drawingContext.globalAlpha = currentDrawingTool === 'highlighter' ? 0.38 : 1;
+      drawingContext.lineWidth = currentDrawingTool === 'highlighter' ? size * 4 : currentDrawingTool === 'eraser' ? size * 5 : size * 2;
+      drawingContext.lineTo(point.x, point.y); drawingContext.stroke();
+    }
+
+    function endDrawing(event) {
+      if (!isDrawing) return;
+      isDrawing = false; drawingContext.globalAlpha = 1; saveDrawingState();
+      if (event.pointerId) drawingCanvas.releasePointerCapture?.(event.pointerId);
+    }
+
+    function saveDrawingState() {
+      if (!drawingCanvas) return;
+      drawingHistory.push(drawingCanvas.toDataURL());
+      if (drawingHistory.length > 25) drawingHistory.shift();
+    }
+
+    function undoDrawing() {
+      if (!drawingCanvas || drawingHistory.length < 2) return;
+      drawingHistory.pop(); const image = new Image();
+      image.onload = () => { drawingContext.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height); drawingContext.drawImage(image, 0, 0); };
+      image.src = drawingHistory[drawingHistory.length - 1];
+    }
+
+    function clearDrawing() {
+      if (!drawingCanvas) return;
+      drawingContext.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height); saveDrawingState();
+    }
+
+    function insertLink() {
+      const url = prompt('Enter URL:');
+      if (url) format('createLink', url);
+    }
+
+    function insertBookmark() {
+      const name = prompt('Bookmark name:');
+      if (name) format('insertHTML', `<a name="${name}">[Bookmark: ${name}]</a>`);
+    }
+
+    function insertHeader() {
+      format('insertHTML', '<div style="border-bottom: 1px solid #aaa; padding-bottom: 6px; margin-bottom: 14px; font-size: 9pt; color: #666; text-align: right;">Document Header</div>');
+    }
+
+    function insertFooter() {
+      format('insertHTML', '<div style="border-top: 1px solid #aaa; padding-top: 6px; margin-top: 24px; font-size: 9pt; color: #666; text-align: center;">Page 1 | Confidential</div>');
+    }
+
+    function insertDateTime() {
+      format('insertText', new Date().toLocaleString());
+    }
+
+    function insertSymbol(sym) {
+      format('insertText', sym);
+    }
+
+    /* Design Tools */
+    function applyWatermark(txt) {
+      const page = document.querySelector('.page');
+      if (txt) {
+        page.classList.add('watermark');
+        page.setAttribute('data-watermark', txt);
+      } else {
+        page.classList.remove('watermark');
+      }
+    }
+
+    function setPageColor(color) {
+      document.querySelectorAll('.page').forEach(p => p.style.backgroundColor = color);
+    }
+
+    function togglePageBorder() {
+      const p = document.querySelector('.page');
+      p.style.border = (p.style.border && p.style.border !== 'none') ? 'none' : '2px solid #185abd';
+    }
+
+    /* Layout Tools */
+    function setMargins(val) {
+      document.querySelectorAll('.page').forEach(p => p.style.padding = val);
+    }
+
+    function setOrientation(mode) {
+      document.querySelectorAll('.page').forEach(p => {
+        if (mode === 'landscape') {
+          p.style.width = '29.7cm';
+          p.style.minHeight = '21cm';
+        } else {
+          p.style.width = '21cm';
+          p.style.minHeight = '29.7cm';
+        }
+      });
+      document.getElementById('ruler').style.width = (mode === 'landscape') ? '29.7cm' : '21cm';
+    }
+
+    function setPaperSize(size) {
+      if (size === 'Letter') {
+        document.querySelectorAll('.page').forEach(p => {
+          p.style.width = '21.59cm';
+          p.style.minHeight = '27.94cm';
+        });
+        document.getElementById('ruler').style.width = '21.59cm';
+      } else {
+        setOrientation('portrait');
+      }
+    }
+
+    /* References */
+    function generateTOC() {
+      const headings = editor.querySelectorAll('h1, h2, h3');
+      if (!headings.length) return alert('No headings (H1/H2) found to create Table of Contents.');
+      let html = '<div style="background:#f3f2f1; padding:16px; border:1px solid #d2d0ce; margin:16px 0;"><strong>Table of Contents</strong><ul style="margin-top:8px; padding-left:20px;">';
+      headings.forEach(h => {
+        html += `<li style="margin:4px 0;">${h.innerText}</li>`;
+      });
+      html += '</ul></div><p><br></p>';
+      format('insertHTML', html);
+    }
+
+    function insertFootnote() {
+      const note = prompt('Enter footnote note:');
+      if (note) {
+        format('insertHTML', `<sup>[1]</sup>`);
+        editor.innerHTML += `<div style="font-size:8.5pt; color:#666; margin-top:20px; border-top:1px solid #ccc; padding-top:4px;">[1] ${note}</div>`;
+      }
+    }
+
+    function insertCitation() {
+      const src = prompt('Citation Source (e.g., Smith, 2024):', 'Smith, 2024');
+      if (src) format('insertHTML', ` (${src})`);
+    }
+
+    /* Review Tools */
+    function checkSpelling() {
+      editor.spellcheck = true;
+      alert('Browser spellcheck enabled. Misspelled words are now underlined in red.');
+    }
+
+    function showWordCountDialog() {
+      const text = editor.innerText || '';
+      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+      const chars = text.length;
+      const charsNoSpace = text.replace(/\s/g, '').length;
+      const paras = editor.querySelectorAll('p').length || 1;
+      alert(`Word Count Statistics:\n\nWords: ${words}\nCharacters (with spaces): ${chars}\nCharacters (no spaces): ${charsNoSpace}\nParagraphs: ${paras}\nPages: ${document.querySelectorAll('.page').length}`);
+    }
+
+    function readAloud() {
+      if (!('speechSynthesis' in window)) return alert('Speech synthesis not supported in this browser.');
+      const text = window.getSelection().toString() || editor.innerText;
+      if (!text) return alert('Document is empty.');
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      window.speechSynthesis.speak(utter);
+    }
+
+    /* Advanced browser-side tools */
+    let recognition = null;
+    let ambientContext = null;
+    let ambientNodes = [];
+
+    function activeText() {
+      return window.getSelection().toString().trim() || editor.innerText.trim();
+    }
+
+    function replaceSelection(text) {
+      const selection = window.getSelection();
+      if (selection.rangeCount && selection.toString().trim()) document.execCommand('insertText', false, text);
+      else format('insertHTML', `<p>${escapeHtml(text)}</p>`);
+      updateStats();
+    }
+
+    function toggleDictation() {
+      const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!Recognition) return alert('Voice typing is not supported in this browser. Try Chrome or Edge.');
+      if (recognition) { recognition.stop(); return; }
+      recognition = new Recognition();
+      recognition.lang = prompt('Dictation language: en-IN, hi-IN, or hi-IN (recommended)', 'en-IN') || 'en-IN';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.onresult = event => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) transcript += event.results[i][0].transcript;
+        document.execCommand('insertText', false, transcript + ' ');
+        updateStats();
+      };
+      recognition.onend = () => { recognition = null; };
+      recognition.onerror = () => { recognition = null; alert('Dictation stopped. Check microphone permission and try again.'); };
+      recognition.start();
+    }
+
+    function polishSelection() {
+      const source = activeText();
+      if (!source) return alert('Select text first.');
+      const polished = source
+        .replace(/\bi\b/g, 'I')
+        .replace(/\s+/g, ' ')
+        .replace(/\s+([,.!?])/g, '$1')
+        .replace(/(^|[.!?]\s+)([a-z])/g, (_, lead, letter) => lead + letter.toUpperCase())
+        .replace(/\b(very|really)\s+/gi, '');
+      replaceSelection(polished);
+    }
+
+    function summarizeDocument() {
+      const sentences = activeText().match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [];
+      if (!sentences.length) return alert('Add some text before summarizing.');
+      const summary = sentences.filter((_, index) => index === 0 || index === sentences.length - 1 || index % Math.ceil(sentences.length / 4) === 0).slice(0, 5);
+      format('insertHTML', `<h2>Summary</h2><ul>${summary.map(line => `<li>${escapeHtml(line.trim())}</li>`).join('')}</ul><p><br></p>`);
+    }
+
+    function translateSelection() {
+      const source = activeText();
+      const language = prompt('Translate selected text to: Hindi, Hinglish, Spanish, French, or German', 'Hindi');
+      if (!source || !language) return;
+      const dictionaries = {
+        hindi: { the:'the', and:'aur', is:'hai', are:'hain', student:'vidyarthi', document:'dastavez', please:'kripya', thank:'dhanyavaad' },
+        hinglish: { student:'student', document:'document', please:'please', thank:'thanks' },
+        spanish: { the:'el', and:'y', is:'es', are:'son', document:'documento', please:'por favor', thank:'gracias' },
+        french: { the:'le', and:'et', is:'est', are:'sont', document:'document', please:'s’il vous plait', thank:'merci' },
+        german: { the:'der', and:'und', is:'ist', are:'sind', document:'dokument', please:'bitte', thank:'danke' }
+      };
+      const map = dictionaries[language.toLowerCase()];
+      if (!map) return alert('Choose Hindi, Hinglish, Spanish, French, or German.');
+      replaceSelection(source.replace(/\b[a-z]+\b/gi, word => map[word.toLowerCase()] || word));
+    }
+
+    function scanPhotoToText() { document.getElementById('ocrInput').click(); }
+
+    async function runOcr(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      if (!window.Tesseract) return alert('OCR engine could not load. Check your connection and try again.');
+      try {
+        const result = await Tesseract.recognize(file, 'eng+hin');
+        format('insertHTML', `<h2>Scanned Notes</h2>${textToDocumentHtml(result.data.text)}<p><br></p>`);
+      } catch (error) { alert('Could not read this image. Use a sharp, well-lit photo and try again.'); }
+      event.target.value = '';
+    }
+
+    function generateQuiz() {
+      const sentences = activeText().match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [];
+      if (!sentences.length) return alert('Select a paragraph first.');
+      const questions = sentences.slice(0, 5).map((sentence, index) => `<p><strong>${index + 1}. Explain:</strong> ${escapeHtml(sentence.trim().replace(/\.$/, ''))}.</p><p style="margin-left:18px; border-bottom:1px solid #999; min-height:28px;"></p>`).join('');
+      format('insertHTML', `<h2>Practice Quiz</h2>${questions}<p><br></p>`);
+    }
+
+    function createCheatsheet() {
+      const source = activeText();
+      if (!source) return alert('Add notes or select key material first.');
+      const chunks = source.split(/\n|(?<=[.!?])\s+/).filter(Boolean).slice(0, 18);
+      format('insertHTML', `<div style="columns:2; column-gap:20px; font-size:8.5pt; line-height:1.25; border:1px solid #185abd; padding:12px;"><h2 style="column-span:all; font-size:13pt;">Revision Cheatsheet</h2>${chunks.map(chunk => `<p><strong>${escapeHtml(chunk.split(':')[0].slice(0, 32))}</strong>${chunk.includes(':') ? escapeHtml(chunk.slice(chunk.indexOf(':'))) : ''}</p>`).join('')}</div><p><br></p>`);
+    }
+
+    function compareDocuments() {
+      const original = prompt('Paste the older version to compare:');
+      if (original === null) return;
+      const current = activeText();
+      const oldLines = original.split(/\r?\n/).filter(Boolean);
+      const newLines = current.split(/\r?\n/).filter(Boolean);
+      const removed = oldLines.filter(line => !newLines.includes(line));
+      const added = newLines.filter(line => !oldLines.includes(line));
+      format('insertHTML', `<h2>Document Comparison</h2><div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;"><div><strong>Removed (-)</strong>${removed.map(line => `<p class="diff-line-remove">${escapeHtml(line)}</p>`).join('') || '<p>No removed lines.</p>'}</div><div><strong>Added (+)</strong>${added.map(line => `<p class="diff-line-add">${escapeHtml(line)}</p>`).join('') || '<p>No added lines.</p>'}</div></div><p><br></p>`);
+    }
+
+    function insertEquation() {
+      const equation = prompt('Enter a math equation or LaTeX-style expression:', 'E = mc^2');
+      if (equation) format('insertHTML', `<div contenteditable="true" style="font-family:Georgia,serif; font-size:18pt; text-align:center; padding:12px; border:1px solid #d2d0ce; margin:10px 0;">${escapeHtml(equation)}</div><p><br></p>`);
+    }
+
+    function insertGraph() {
+      const expression = prompt('Enter y = function of x. Examples: sin(x), x*x, x^2', 'sin(x)');
+      if (!expression) return;
+      const normalized = expression.replace(/\^/g, '**').replace(/sin/g, 'Math.sin').replace(/cos/g, 'Math.cos').replace(/tan/g, 'Math.tan').replace(/sqrt/g, 'Math.sqrt');
+      let points = '';
+      try {
+        for (let x = -10; x <= 10; x += 0.1) {
+          const y = Function('x', `return ${normalized}`)(x);
+          if (Number.isFinite(y) && Math.abs(y) < 10) points += `${((x + 10) * 20).toFixed(1)},${(200 - y * 18).toFixed(1)} `;
+        }
+      } catch (error) { return alert('That function could not be plotted. Use x, sin(x), cos(x), or x^2.'); }
+      format('insertHTML', `<figure contenteditable="false" style="margin:14px 0;"><svg viewBox="0 0 400 400" width="100%" style="max-width:500px; border:1px solid #d2d0ce; background:#fff"><path d="M0 200H400 M200 0V400" stroke="#888"/><polyline points="${points}" fill="none" stroke="#185abd" stroke-width="2"/></svg><figcaption contenteditable="true">y = ${escapeHtml(expression)}</figcaption></figure><p><br></p>`);
+    }
+
+    function insertDiagram() {
+      const flow = prompt('Enter steps separated with ->', 'Research -> Draft -> Review -> Submit');
+      if (!flow) return;
+      const steps = flow.split('->').map(step => step.trim()).filter(Boolean);
+      const width = Math.max(420, steps.length * 150);
+      const svg = steps.map((step, i) => `<rect x="${10 + i * 145}" y="28" width="120" height="52" rx="4" fill="#e8f1fb" stroke="#185abd"/><text x="${70 + i * 145}" y="60" text-anchor="middle" font-size="13">${escapeHtml(step)}</text>${i < steps.length - 1 ? `<path d="M${130 + i * 145} 54H${155 + i * 145}" stroke="#185abd" marker-end="url(#arrow)"/>` : ''}`).join('');
+      format('insertHTML', `<figure contenteditable="false"><svg viewBox="0 0 ${width} 110" width="100%" style="max-width:680px"><defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="#185abd"/></marker></defs>${svg}</svg><figcaption contenteditable="true">Process flow</figcaption></figure><p><br></p>`);
+    }
+
+    function showShareQr() {
+      const share = `${document.title}\n\n${editor.innerText.slice(0, 1200)}`;
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; z-index:2000;';
+      wrap.innerHTML = '<div style="background:#fff; padding:24px; text-align:center; border-radius:6px;"><h3 style="margin-bottom:12px;">Scan to copy document text</h3><div id="qrCanvas"></div><button style="margin-top:16px; padding:7px 12px;" onclick="this.parentElement.parentElement.remove()">Close</button></div>';
+      document.body.appendChild(wrap);
+      if (window.QRCode) new QRCode(document.getElementById('qrCanvas'), { text: share, width: 190, height: 190 });
+      else document.getElementById('qrCanvas').innerText = share;
+    }
+
+    function toggleZenMode() { document.body.classList.toggle('zen-mode'); }
+
+    function toggleAmbientSound() {
+      if (ambientNodes.length) { ambientNodes.forEach(node => node.stop()); ambientNodes = []; return; }
+      ambientContext = ambientContext || new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = ambientContext.createOscillator(); const gain = ambientContext.createGain();
+      oscillator.type = 'sine'; oscillator.frequency.value = 174; gain.gain.value = 0.018;
+      oscillator.connect(gain).connect(ambientContext.destination); oscillator.start(); ambientNodes = [oscillator];
+    }
+
+    function downloadCompressed() {
+      const compact = editor.innerHTML.replace(/\s{2,}/g, ' ').replace(/<!--[^]*?-->/g, '');
+      const blob = new Blob([compact], { type: 'text/html' }); const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob); link.download = 'compact-document.html'; link.click(); URL.revokeObjectURL(link.href);
+    }
+
+    function insertFormattedCitation() {
+      const source = prompt('Book, article, or URL:', 'Author. Title. Publisher, 2026.');
+      const style = prompt('Citation style: APA, MLA, IEEE, or Chicago', 'APA');
+      if (source && style) format('insertHTML', `<p><strong>${escapeHtml(style.toUpperCase())} citation:</strong> ${escapeHtml(source)}</p>`);
+    }
+
+    function insertFormField() {
+      const type = prompt('Field type: checkbox, date, or text', 'checkbox');
+      if (type === 'date') format('insertHTML', '<input type="date" contenteditable="false">');
+      else if (type === 'text') format('insertHTML', '<span contenteditable="true" style="display:inline-block; min-width:180px; border-bottom:1px solid #333;">&nbsp;</span>');
+      else format('insertHTML', '<input type="checkbox" contenteditable="false">');
+    }
+
+    function setDynamicHeaderFooter() {
+      const header = prompt('Header text:', 'Confidential Draft');
+      if (header === null) return;
+      const footer = prompt('Footer text:', 'Page 1 of 1');
+      document.querySelectorAll('.page').forEach(page => {
+        page.querySelectorAll('.dynamic-header, .dynamic-footer').forEach(node => node.remove());
+        page.insertAdjacentHTML('afterbegin', `<div class="dynamic-header" contenteditable="true" style="border-bottom:1px solid #aaa; padding-bottom:6px; margin-bottom:14px; font-size:9pt; color:#555; text-align:right;">${escapeHtml(header)} | ${new Date().toLocaleDateString()}</div>`);
+        page.insertAdjacentHTML('beforeend', `<div class="dynamic-footer" contenteditable="true" style="border-top:1px solid #aaa; padding-top:6px; margin-top:24px; font-size:9pt; color:#555; text-align:center;">${escapeHtml(footer)}</div>`);
+      });
+    }
+
+    /* Student PDF extraction and local study chat */
+    function studyLines() {
+      return (editor.innerText || '').split(/\r?\n/).map(line => line.trim()).filter(line => line.length > 2 && !/^Page \d+$/i.test(line));
+    }
+
+    function extractStudyItems(kind) {
+      const lines = studyLines();
+      if (!lines.length) return alert('Open a PDF or add study notes first.');
+      const questionPattern = /(^\s*(q\.?|question|problem|exercise)\s*\d*|\?$|\b(what|why|how|which|calculate|find|solve|define|explain|derive|determine)\b)/i;
+      const formulaPattern = /[=+\-*/^]|\b(sin|cos|tan|log|ln|sqrt|integral|derivative|velocity|force|energy|area|volume|mean|median)\b|[0-9][a-zA-Z]+/i;
+      let items;
+      let heading;
+      if (kind === 'questions') {
+        items = lines.filter(line => questionPattern.test(line));
+        heading = 'Extracted Question Bank';
+      } else if (kind === 'formulas') {
+        items = lines.filter(line => formulaPattern.test(line) && line.length < 220);
+        heading = 'Extracted Formula Sheet';
+      } else {
+        items = lines.filter(line => line.length > 25 && line.length < 230).slice(0, 30);
+        heading = 'PDF Key Points';
+      }
+      if (!items.length) items = lines.slice(0, 20);
+      const unique = [...new Set(items)].slice(0, 40);
+      format('insertHTML', `<div style="border:1px solid #185abd; padding:16px; margin:14px 0;"><h1 style="font-size:18pt;">${heading}</h1><p style="color:#666; font-size:9pt;">Generated from the open document</p><ol>${unique.map(item => `<li style="margin:7px 0;">${escapeHtml(item)}</li>`).join('')}</ol></div><p><br></p>`);
+    }
+
+    function createInterviewKit() {
+      const topic = prompt('Interview topic or role:', 'Software developer');
+      if (!topic) return;
+      const questions = [
+        `Tell me about yourself and your interest in ${topic}.`,
+        `Describe a challenging ${topic} problem you solved.`,
+        `Which core skills are most important for ${topic}, and how have you used them?`,
+        `How do you learn a new tool or concept when working on ${topic}?`,
+        `What would you improve in a recent project related to ${topic}?`
+      ];
+      const answers = [
+        'Use a 60-second story: present focus, strongest skill, evidence, and why this role.',
+        'Use STAR: Situation, Task, Action, Result. Include one measurable outcome.',
+        'Name two skills, one real example for each, and the result you achieved.',
+        'Explain your learning process, a small practice project, and how you validated the result.',
+        'Be specific about the tradeoff, what you learned, and the next action you would take.'
+      ];
+      format('insertHTML', `<h1>Interview Practice: ${escapeHtml(topic)}</h1>${questions.map((question, index) => `<div style="margin:12px 0; padding:10px; border-left:3px solid #185abd;"><strong>Q${index + 1}. ${escapeHtml(question)}</strong><p style="margin:6px 0 0; color:#555;"><em>Answer guide:</em> ${answers[index]}</p></div>`).join('')}<p><br></p>`);
+    }
+
+    function openStudyChat() {
+      const existing = document.getElementById('studentChat');
+      if (existing) return existing.remove();
+      const panel = document.createElement('section');
+      panel.id = 'studentChat';
+      panel.className = 'student-chat';
+      panel.innerHTML = '<div class="student-chat-head"><span><i class="fa-solid fa-graduation-cap"></i> Study AI</span><button title="Close" onclick="this.parentElement.parentElement.remove()">&times;</button></div><div class="student-chat-log" id="studyChatLog"></div><div class="student-chat-compose"><input id="studyChatInput" placeholder="Ask about your document or interview prep"><button onclick="sendStudyMessage()">Send</button></div>';
+      document.body.appendChild(panel);
+      appendStudyMessage('assistant', 'I can use the open document to make questions, explain key points, prepare interview answers, or build a revision plan. Ask in Hindi or English.');
+      document.getElementById('studyChatInput').addEventListener('keydown', event => { if (event.key === 'Enter') sendStudyMessage(); });
+    }
+
+    function appendStudyMessage(role, message) {
+      const log = document.getElementById('studyChatLog');
+      if (!log) return;
+      const bubble = document.createElement('div');
+      bubble.className = `chat-message ${role}`;
+      bubble.textContent = message;
+      log.appendChild(bubble);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function getStudyAnswer(question) {
+      const text = editor.innerText || '';
+      const terms = question.toLowerCase().match(/[a-zA-Z]{4,}/g) || [];
+      const relevant = studyLines().filter(line => terms.some(term => line.toLowerCase().includes(term))).slice(0, 3);
+      if (/interview|job|hr|resume|placement/i.test(question)) {
+        return 'Interview mode:\n1. Start with a direct one-sentence answer.\n2. Give a real example using STAR: Situation, Task, Action, Result.\n3. Finish with a measurable result or what you learned.\n\nUse the Interview Kit button to add a full practice sheet to your document.';
+      }
+      if (/question|quiz|test|mcq/i.test(question)) {
+        return 'I can turn this document into practice questions. Use Extract Questions for a clean question bank, or Quiz in the Advanced tab for short-answer practice.';
+      }
+      if (/summary|summarize|short notes|revision/i.test(question)) {
+        return 'For revision, focus on definitions, formulas, examples, and exceptions. Use Key Points and Cheatsheet to place a compact revision sheet directly in the document.';
+      }
+      if (relevant.length) return `From your open document:\n${relevant.join('\n\n')}\n\nAsk a more specific question and I will narrow this down.`;
+      return 'I could not find that topic in the open document yet. Paste or open the source PDF, then ask me to explain a topic, make questions, or prepare interview answers.';
+    }
+
+    function sendStudyMessage() {
+      const input = document.getElementById('studyChatInput');
+      if (!input || !input.value.trim()) return;
+      const question = input.value.trim();
+      appendStudyMessage('user', question);
+      input.value = '';
+      setTimeout(() => appendStudyMessage('assistant', getStudyAnswer(question)), 180);
+    }
+
+    /* Power Tools: 20 reusable document actions */
+    function insertTextBox() { format('insertHTML', '<div contenteditable="true" style="border:1px solid #185abd; padding:12px; min-height:48px; margin:10px 0;">Type here</div><p><br></p>'); }
+    function insertCallout() { const text = prompt('Callout text:', 'Important note'); if (text) format('insertHTML', `<aside style="background:#fff4ce; border-left:4px solid #d83b01; padding:10px; margin:10px 0;"><strong>Note:</strong> ${escapeHtml(text)}</aside><p><br></p>`); }
+    function insertCodeBlock() { format('insertHTML', '<pre contenteditable="true" style="background:#1e1e1e; color:#f5f5f5; padding:12px; font:12px/1.4 monospace; white-space:pre-wrap;">// Write code here</pre><p><br></p>'); }
+    function insertDivider() { format('insertHTML', '<hr style="border:0; border-top:2px solid #185abd; margin:16px 0;"><p><br></p>'); }
+    function insertChecklist() { format('insertHTML', '<p><input type="checkbox" contenteditable="false"> Task one</p><p><input type="checkbox" contenteditable="false"> Task two</p><p><input type="checkbox" contenteditable="false"> Task three</p><p><br></p>'); }
+    function insertSignature() { const name = prompt('Signer name:', ''); if (name) format('insertHTML', `<p style="font-family:cursive; font-size:18pt; margin-top:28px;">${escapeHtml(name)}</p><p style="border-top:1px solid #333; width:220px; padding-top:4px;">Signature</p>`); }
+    function insertPageNumbers() { document.querySelectorAll('.page').forEach((page, index) => { const old = page.querySelector('.auto-page-number'); if (old) old.remove(); page.insertAdjacentHTML('beforeend', `<p class="auto-page-number" contenteditable="false" style="text-align:center; color:#666; font-size:9pt; margin-top:24px;">Page ${index + 1} of ${document.querySelectorAll('.page').length}</p>`); }); }
+    function applyDropCap() { const paragraph = window.getSelection().anchorNode?.parentElement?.closest('p') || editor.querySelector('p'); if (!paragraph || !paragraph.textContent.trim()) return alert('Place the cursor in a paragraph first.'); const text = paragraph.textContent; paragraph.innerHTML = `<span style="float:left; font-size:40pt; line-height:.8; padding-right:6px; color:#185abd;">${escapeHtml(text[0])}</span>${escapeHtml(text.slice(1))}`; }
+    function toggleColumns() { const enabled = editor.style.columnCount === '2'; editor.style.columnCount = enabled ? '' : '2'; editor.style.columnGap = enabled ? '' : '28px'; }
+    function insertCoverPage() { const title = prompt('Document title:', 'Project Title'); if (title) { editor.insertAdjacentHTML('afterbegin', `<section style="min-height:420px; display:flex; flex-direction:column; justify-content:center; text-align:center; border:8px solid #185abd; padding:40px; margin-bottom:30px;"><p style="color:#185abd; letter-spacing:2px;">DOCUMENT</p><h1 style="font-size:30pt;">${escapeHtml(title)}</h1><p style="margin-top:80px;">${new Date().toLocaleDateString()}</p></section>`); } }
+    function insertMeetingNotes() { format('insertHTML', '<h1>Meeting Notes</h1><p><strong>Date:</strong> </p><p><strong>Attendees:</strong> </p><h2>Agenda</h2><ul><li></li></ul><h2>Decisions</h2><ul><li></li></ul><h2>Action Items</h2><p><input type="checkbox" contenteditable="false"> Owner - task - due date</p><p><br></p>'); }
+    function createTimeline() { const steps = prompt('Milestones separated with comma:', 'Plan, Build, Review, Deliver'); if (steps) format('insertHTML', `<div style="display:flex; gap:0; margin:16px 0; border-top:3px solid #185abd; padding-top:12px;">${steps.split(',').map((step, index) => `<div style="flex:1; position:relative; padding:0 8px;"><span style="display:block; width:14px; height:14px; background:#185abd; border-radius:50%; position:absolute; top:-21px;"></span><strong>${index + 1}</strong><br>${escapeHtml(step.trim())}</div>`).join('')}</div><p><br></p>`); }
+    function showReadingTime() { const words = (editor.innerText.trim().match(/\S+/g) || []).length; alert(`Estimated reading time: ${Math.max(1, Math.ceil(words / 200))} minute(s) for ${words} words.`); }
+    function cleanDocument() { editor.innerHTML = editor.innerHTML.replace(/<p>\s*(?:<br>)?\s*<\/p>/gi, '').replace(/\s{3,}/g, ' '); updateStats(); autoSaveDraft(); }
+    function duplicateCurrentPage() { const page = document.activeElement?.closest('.page') || document.querySelector('.page'); const copy = page.cloneNode(true); copy.querySelectorAll('.selected-editor-image').forEach(image => image.classList.remove('selected-editor-image')); document.getElementById('pageContainer').appendChild(copy); updatePageCount(); }
+    function toggleDocumentLock() { const locked = editor.contentEditable === 'false'; document.querySelectorAll('.page').forEach(page => page.contentEditable = locked ? 'true' : 'false'); alert(locked ? 'Editing unlocked.' : 'Editing locked.'); }
+    function saveSnapshot() { localStorage.setItem('word_studio_snapshot', editor.innerHTML); alert('Snapshot saved in this browser.'); }
+    function restoreSnapshot() { const snapshot = localStorage.getItem('word_studio_snapshot'); if (!snapshot) return alert('No snapshot saved yet.'); if (confirm('Restore the saved snapshot? Current edits will be replaced.')) { editor.innerHTML = snapshot; updateStats(); } }
+    function exportPlainText() { const blob = new Blob([editor.innerText], { type:'text/plain' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'document.txt'; link.click(); URL.revokeObjectURL(link.href); }
+    function insertInitials() { const initials = prompt('Your initials:', ''); if (initials) format('insertHTML', `<span style="display:inline-block; border:1px solid #185abd; color:#185abd; padding:4px 7px; font-weight:700;">${escapeHtml(initials.toUpperCase())}</span>`); }
+
+    /* View Tools */
+    function setZoom(val) {
+      document.getElementById('pageContainer').style.transform = `scale(${val / 100})`;
+      document.getElementById('pageContainer').style.transformOrigin = 'top center';
+    }
+
+    function toggleRuler() {
+      const r = document.getElementById('ruler');
+      r.style.display = (r.style.display === 'none') ? 'flex' : 'none';
+    }
+
+    function toggleDarkMode() {
+      const p = document.querySelector('.page');
+      if (p.style.backgroundColor === 'rgb(30, 30, 30)') {
+        p.style.backgroundColor = '#ffffff';
+        p.style.color = '#000000';
+      } else {
+        p.style.backgroundColor = '#1e1e1e';
+        p.style.color = '#ffffff';
+      }
+    }
+
+    /* File Drawer Operations */
+    function newDoc() {
+      if (confirm('Create a new blank document?')) {
+        editor.innerHTML = '<p><br></p>';
+        editor.focus();
+        updateStats();
+        toggleFileMenu();
+        localStorage.removeItem('word_doc_draft');
+      }
+    }
+
+    function openDocPrompt() {
+      document.getElementById('fileDocInput').click();
+    }
+
+    function escapeHtml(value) {
+      const div = document.createElement('div');
+      div.textContent = value;
+      return div.innerHTML;
+    }
+
+    function setImportedDocument(html, fileName) {
+      editor.innerHTML = html || '<p><br></p>';
+      document.getElementById('docName').innerText = fileName.replace(/\.[^.]+$/, '') + '.docx';
+      updateDocTitle();
+      updateStats();
+      autoSaveDraft();
+      toggleFileMenu();
+      editor.focus();
+    }
+
+    function textToDocumentHtml(text) {
+      return text.split(/\r?\n/).map(line => line.trim() ? `<p>${escapeHtml(line)}</p>` : '<p><br></p>').join('');
+    }
+
+    function markdownToHtml(markdown) {
+      return markdown.split(/\r?\n/).map(line => {
+        const safe = escapeHtml(line)
+          .replace(/`([^`]+)`/g, '<code>$1</code>')
+          .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+          .replace(/\*([^*]+)\*/g, '<em>$1</em>');
+        if (/^###\s+/.test(line)) return `<h3>${safe.replace(/^###\s+/, '')}</h3>`;
+        if (/^##\s+/.test(line)) return `<h2>${safe.replace(/^##\s+/, '')}</h2>`;
+        if (/^#\s+/.test(line)) return `<h1>${safe.replace(/^#\s+/, '')}</h1>`;
+        if (/^[-*]\s+/.test(line)) return `<ul><li>${safe.replace(/^[-*]\s+/, '')}</li></ul>`;
+        return safe.trim() ? `<p>${safe}</p>` : '<p><br></p>';
+      }).join('');
+    }
+
+    function rtfToText(rtf) {
+      return rtf
+        .replace(/\\par[d]?/g, '\n')
+        .replace(/\\tab/g, '\t')
+        .replace(/\\'([0-9a-fA-F]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+        .replace(/\\[a-zA-Z]+-?\d* ?/g, '')
+        .replace(/[{}]/g, '');
+    }
+
+    async function extractPdfHtml(file) {
+      if (!window.pdfjsLib) throw new Error('PDF reader could not load. Check your internet connection and try again.');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+      let html = '';
+      for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+        const page = await pdf.getPage(pageNumber);
+        const content = await page.getTextContent();
+        const lines = [];
+        let lastY = null;
+        let line = '';
+        content.items.forEach(item => {
+          const y = Math.round(item.transform[5]);
+          if (lastY !== null && Math.abs(y - lastY) > 4) {
+            if (line.trim()) lines.push(line.trim());
+            line = '';
+          }
+          line += item.str + (item.hasEOL ? '\n' : ' ');
+          lastY = y;
+        });
+        if (line.trim()) lines.push(line.trim());
+        html += `<h2 style="color:#185abd; font-size:12pt; margin:18px 0 8px;">Page ${pageNumber}</h2>` + textToDocumentHtml(lines.join('\n'));
+      }
+      return html || '<p>This PDF does not contain selectable text. Use Insert > Pictures to keep it as an image, or scan it with OCR.</p>';
+    }
+
+    async function extractOdtHtml(file) {
+      if (!window.JSZip) throw new Error('ODT reader could not load. Check your internet connection and try again.');
+      const zip = await JSZip.loadAsync(await file.arrayBuffer());
+      const contentFile = zip.file('content.xml');
+      if (!contentFile) throw new Error('This ODT file has no readable document content.');
+      const xml = await contentFile.async('text');
+      const doc = new DOMParser().parseFromString(xml, 'text/xml');
+      return Array.from(doc.getElementsByTagNameNS('*', 'p')).map(node => `<p>${escapeHtml(node.textContent)}</p>`).join('') || '<p><br></p>';
+    }
+
+    async function loadDocFile(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const extension = (file.name.split('.').pop() || '').toLowerCase();
+      try {
+        if (file.type.startsWith('image/')) {
+          const src = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = event => resolve(event.target.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          setImportedDocument(`<p><img src="${src}" alt="${escapeHtml(file.name)}" style="max-width:100%; height:auto;"></p><p><br></p>`, file.name);
+        } else if (extension === 'docx') {
+          if (!window.mammoth) throw new Error('Word reader could not load. Check your internet connection and try again.');
+          const result = await mammoth.convertToHtml({ arrayBuffer: await file.arrayBuffer() });
+          setImportedDocument(result.value, file.name);
+        } else if (extension === 'pdf') {
+          setImportedDocument(await extractPdfHtml(file), file.name);
+        } else if (extension === 'odt') {
+          setImportedDocument(await extractOdtHtml(file), file.name);
+        } else {
+          const raw = await file.text();
+          if (extension === 'html' || extension === 'htm' || extension === 'doc') {
+            const parsed = new DOMParser().parseFromString(raw, 'text/html');
+            setImportedDocument(parsed.body.innerHTML || textToDocumentHtml(raw), file.name);
+          } else if (extension === 'md' || extension === 'markdown') {
+            setImportedDocument(markdownToHtml(raw), file.name);
+          } else if (extension === 'rtf') {
+            setImportedDocument(textToDocumentHtml(rtfToText(raw)), file.name);
+          } else {
+            setImportedDocument(textToDocumentHtml(raw), file.name);
+          }
+        }
+      } catch (error) {
+        alert(`Could not open ${file.name}. ${error.message || 'The file may be password protected or unsupported.'}`);
+      } finally {
+        e.target.value = '';
+      }
+    }
+
+    function saveDoc() {
+      const content = editor.innerHTML;
+      const html = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head><meta charset='utf-8'><title>${document.getElementById('docName').innerText}</title></head>
+        <body style="font-family: Calibri, sans-serif;">${content}</body></html>
+      `;
+      const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = document.getElementById('docName').innerText || 'Document.doc';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function exportToPDF() {
+      window.print();
+    }
+
+    /* Stats & Live Toolbar Updates */
+    function updateStats() {
+      const text = editor.innerText || '';
+      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+      const chars = text.length;
+      document.getElementById('wordCount').innerText = `Words: ${words}`;
+      document.getElementById('charCount').innerText = `Characters: ${chars}`;
+      updatePageCount();
+    }
+
+    function updatePageCount() {
+      const pages = document.querySelectorAll('.page').length;
+      document.getElementById('pageCount').innerText = `Page 1 of ${pages}`;
+    }
+
+    function updateToolbarState() {
+      const commands = ['bold', 'italic', 'underline', 'strikeThrough', 'subscript', 'superscript', 'justifyLeft', 'justifyCenter', 'justifyRight', 'justifyFull'];
+      commands.forEach(cmd => {
+        const btn = document.getElementById('btn-' + cmd) || document.getElementById('btn-' + cmd.replace('Through',''));
+        if (btn) {
+          if (document.queryCommandState(cmd)) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        }
+      });
+
+      const font = document.queryCommandValue('fontName');
+      if (font) {
+        const clean = font.replace(/['"]/g, '').toLowerCase();
+        const fontSelect = document.getElementById('fontName');
+        for(let i=0; i<fontSelect.options.length; i++) {
+          if (clean.includes(fontSelect.options[i].value.toLowerCase())) {
+            fontSelect.selectedIndex = i;
+            break;
+          }
+        }
+      }
+
+      const size = document.queryCommandValue('fontSize');
+      if (size) {
+        document.getElementById('fontSize').value = size;
+      }
+    }
+
+    /* Auto-Save & Recovery */
+    function autoSaveDraft() {
+      try {
+        localStorage.setItem('word_doc_draft', editor.innerHTML);
+      } catch (e) {}
+    }
+
+    function autoLoadDraft() {
+      try {
+        const saved = localStorage.getItem('word_doc_draft');
+        if (saved && saved.trim()) {
+          editor.innerHTML = saved;
+          updateStats();
+        }
+      } catch (e) {}
+    }
+
+    editor.addEventListener('keyup', () => { updateToolbarState(); updateStats(); autoSaveDraft(); });
+    editor.addEventListener('mouseup', updateToolbarState);
+    editor.addEventListener('input', () => { updateToolbarState(); updateStats(); autoSaveDraft(); });
+    editor.addEventListener('click', event => {
+      if (event.target.tagName === 'IMG') selectEditorImage(event.target);
+      else if (!event.target.closest('.selected-editor-image')) selectEditorImage(null);
+    });
+
+    // Format painter apply listener
+    editor.addEventListener('mouseup', () => {
+      if (formatPainterFormat) {
+        format('fontName', formatPainterFormat.font);
+        format('fontSize', formatPainterFormat.size);
+        if (formatPainterFormat.bold) format('bold');
+        if (formatPainterFormat.italic) format('italic');
+        formatPainterFormat = null;
+      }
+    });
+  </script>
+  <script src="platform.js"></script>
+</body>
+</html>

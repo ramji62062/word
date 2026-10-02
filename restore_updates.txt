@@ -1,0 +1,1140 @@
+import re
+
+with open('/Users/ramji/Desktop/ms-word-clone/index.html', 'r', encoding='utf-8') as f:
+    content = f.read()
+
+# 1. Update <title>
+old_title = '<title>Document1 - Word</title>'
+new_title = '<title>DocuVerse AI - Next-Gen Intelligent Document &amp; PDF Studio</title>'
+# assert old_title in content, "old_title not found"
+content = content.replace(old_title, new_title, 1)
+
+# 2. Add Starter Card CSS styles before @media print
+welcome_css = """
+    /* DocuVerse Starter / Welcome Canvas UI */
+    .welcome-hero {
+      user-select: none;
+      padding: 10px 0 20px 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    .welcome-header {
+      background: linear-gradient(135deg, #0b2f6d 0%, #185abd 50%, #2b88d8 100%);
+      color: white;
+      border-radius: 12px;
+      padding: 24px 26px;
+      box-shadow: 0 8px 24px rgba(24, 90, 189, 0.22);
+      margin-bottom: 22px;
+      position: relative;
+      overflow: hidden;
+    }
+    .welcome-header::after {
+      content: '';
+      position: absolute;
+      right: -30px;
+      bottom: -40px;
+      width: 160px;
+      height: 160px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .welcome-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(4px);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .welcome-title {
+      font-size: 26px;
+      font-weight: 800;
+      margin: 0 0 8px 0;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .welcome-subtitle {
+      font-size: 13.5px;
+      opacity: 0.92;
+      margin: 0 0 16px 0;
+      line-height: 1.5;
+      max-width: 620px;
+    }
+    .welcome-meta-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .meta-chip {
+      background: rgba(0,0,0,0.18);
+      border: 1px solid rgba(255,255,255,0.22);
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .welcome-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .welcome-card {
+      background: #ffffff;
+      border: 1.5px solid #edebe9;
+      border-radius: 10px;
+      padding: 16px 18px;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+      position: relative;
+    }
+    .welcome-card:hover {
+      border-color: #185abd;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(24, 90, 189, 0.12);
+      background: #fbfdff;
+    }
+    .welcome-card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .welcome-card-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .welcome-card-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #201f1e;
+      margin: 0;
+    }
+    .welcome-card-desc {
+      font-size: 12px;
+      color: #605e5c;
+      margin: 0 0 12px 0;
+      line-height: 1.45;
+    }
+    .welcome-card-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #185abd;
+    }
+    .welcome-quick-banner {
+      background: #f3f9fd;
+      border: 1px dashed #2b88d8;
+      border-radius: 8px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .welcome-quick-banner-text {
+      font-size: 12px;
+      color: #0b2f6d;
+    }
+    .welcome-quick-banner button {
+      background: #185abd;
+      color: white;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s ease;
+      white-space: nowrap;
+    }
+    .welcome-quick-banner button:hover {
+      background: #103f8a;
+    }
+
+    /* Print Styles: Export Clean Document Only */
+"""
+old_print = "    /* Print Styles: Export Clean Document Only */"
+# assert old_print in content, "old_print not found"
+content = content.replace(old_print, welcome_css, 1)
+
+# 3. Update Title Bar Branding & Icon
+old_tb = """  <!-- Top Title Bar -->
+  <header class="title-bar">
+    <div class="title-left">
+      <i class="fa-solid fa-file-word"></i>
+      <button class="title-btn" title="Save (Ctrl+S)" onclick="saveDoc()"><i class="fa-regular fa-floppy-disk"></i></button>
+      <button class="title-btn" title="Undo (Ctrl+Z)" onclick="format('undo')"><i class="fa-solid fa-rotate-left"></i></button>
+      <button class="title-btn" title="Redo (Ctrl+Y)" onclick="format('redo')"><i class="fa-solid fa-rotate-right"></i></button>
+    </div>
+    <div class="title-center" id="docTitle">
+      <i class="fa-regular fa-file-lines"></i>
+      <span contenteditable="true" spellcheck="false" id="docName" onblur="updateDocTitle()">Document1.docx</span>
+      <span style="font-size:10px; opacity:0.8; font-weight:normal;">- Saved to Browser</span>
+    </div>"""
+
+new_tb = """  <!-- Top Title Bar -->
+  <header class="title-bar">
+    <div class="title-left">
+      <div style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding-right: 8px; border-right: 1px solid rgba(255,255,255,0.25);" onclick="showStarterHeroPage()" title="DocuVerse AI - Click to return to Welcome Dashboard">
+        <div style="background: white; color: #185abd; width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 900; box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
+          <i class="fa-solid fa-feather-pointed"></i>
+        </div>
+        <span style="font-weight: 800; font-size: 14px; letter-spacing: -0.3px; color: #ffffff;">DocuVerse<span style="color: #69e781; margin-left: 2px; font-weight: 900;">AI</span></span>
+      </div>
+      <button class="title-btn" title="Save (Ctrl+S)" onclick="saveDoc()"><i class="fa-regular fa-floppy-disk"></i></button>
+      <button class="title-btn" title="Undo (Ctrl+Z)" onclick="format('undo')"><i class="fa-solid fa-rotate-left"></i></button>
+      <button class="title-btn" title="Redo (Ctrl+Y)" onclick="format('redo')"><i class="fa-solid fa-rotate-right"></i></button>
+    </div>
+    <div class="title-center" id="docTitle">
+      <i class="fa-regular fa-file-lines"></i>
+      <span contenteditable="true" spellcheck="false" id="docName" onblur="updateDocTitle()">DocuVerse_Document1.docx</span>
+      <span style="font-size:10px; opacity:0.8; font-weight:normal;">- Saved to Browser</span>
+    </div>"""
+
+# assert old_tb in content, "old_tb not found"
+content = content.replace(old_tb, new_tb, 1)
+
+# 4. Update File Drawer Branding & add Close Document button
+old_drawer = """    <!-- BACKSTAGE / FILE DRAWER -->
+    <div id="file-drawer" class="file-drawer">
+      <div style="padding: 20px; font-size: 20px; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.2);">
+        <i class="fa-solid fa-file-word"></i> Word File
+      </div>
+      <div class="file-drawer-item" onclick="newDoc()"><i class="fa-solid fa-file-circle-plus"></i> New Blank Document</div>
+      <div class="file-drawer-item" onclick="openDocPrompt()"><i class="fa-solid fa-folder-open"></i> Open (.docx, .pdf, .txt, .html)</div>
+      <input type="file" id="fileDocInput" accept=".docx,.pdf,.doc,.html,.htm,.txt" style="display: none;" onchange="loadDocFile(event)">
+      <div class="file-drawer-item" onclick="saveDoc()"><i class="fa-solid fa-floppy-disk"></i> Save (.doc / Word file)</div>
+      <div class="file-drawer-item" onclick="exportToPDF()"><i class="fa-solid fa-file-pdf"></i> Export as PDF</div>
+      <div class="file-drawer-item" onclick="openPasswordProtectDialog()"><i class="fa-solid fa-lock"></i> Protect & Encrypt PDF</div>
+      <div class="file-drawer-item" onclick="window.print()"><i class="fa-solid fa-print"></i> Print Layout</div>
+      <div style="margin-top: auto; padding: 16px; border-top: 1px solid rgba(255,255,255,0.2); font-size: 12px; opacity: 0.8;">
+        Word Online Clone v2.0<br>Client-Side & Auto-Saving
+      </div>
+      <div class="file-drawer-item" onclick="toggleFileMenu()"><i class="fa-solid fa-arrow-left"></i> Back to Document</div>
+    </div>"""
+
+new_drawer = """    <!-- BACKSTAGE / FILE DRAWER -->
+    <div id="file-drawer" class="file-drawer">
+      <div style="padding: 20px; font-size: 18px; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.2); display: flex; align-items: center; gap: 10px;">
+        <i class="fa-solid fa-feather-pointed" style="color: #69e781;"></i> DocuVerse Studio
+      </div>
+      <div class="file-drawer-item" onclick="showStarterHeroPage()"><i class="fa-solid fa-house"></i> Starter / Home Page</div>
+      <div class="file-drawer-item" onclick="startFreshBlank()"><i class="fa-solid fa-file-circle-plus"></i> New Blank Document</div>
+      <div class="file-drawer-item" onclick="openDocPrompt()"><i class="fa-solid fa-folder-open"></i> Open File (.docx, .pdf, .txt)</div>
+      <input type="file" id="fileDocInput" accept=".docx,.pdf,.doc,.html,.htm,.txt" style="display: none;" onchange="loadDocFile(event)">
+      <div class="file-drawer-item" onclick="saveDoc()"><i class="fa-solid fa-floppy-disk"></i> Save (.doc / Word)</div>
+      <div class="file-drawer-item" onclick="exportToPDF()"><i class="fa-solid fa-file-pdf"></i> Export as PDF</div>
+      <div class="file-drawer-item" onclick="openPasswordProtectDialog()"><i class="fa-solid fa-lock"></i> Protect & Encrypt PDF</div>
+      <div class="file-drawer-item" onclick="closeCurrentDocument()"><i class="fa-solid fa-circle-xmark" style="color:#ff8585;"></i> Close Current File (Clean Reset)</div>
+      <div class="file-drawer-item" onclick="window.print()"><i class="fa-solid fa-print"></i> Print Layout</div>
+      <div style="margin-top: auto; padding: 16px; border-top: 1px solid rgba(255,255,255,0.2); font-size: 11.5px; opacity: 0.85; line-height: 1.4;">
+        <b>DocuVerse AI Studio v3.0</b><br>100% Client-Side Privacy Guaranteed
+      </div>
+      <div class="file-drawer-item" onclick="toggleFileMenu()"><i class="fa-solid fa-arrow-left"></i> Back to Editor</div>
+    </div>"""
+
+# assert old_drawer in content, "old_drawer not found"
+content = content.replace(old_drawer, new_drawer, 1)
+
+# 5. Replace initial editor markup with rich starter dashboard UI
+old_page_container = """    <!-- Pages Container -->
+    <div class="page-container" id="pageContainer">
+      <div class="page" id="editor" contenteditable="true" spellcheck="true">
+        <h1>Welcome to MS Word Online</h1>
+        <p>This is a complete, authentic Microsoft Word replica equipped with working Ribbons, typography controls, tables, styles, real-time statistics, and printing capabilities.</p>
+        <p>Click anywhere to begin typing naturally, press <strong>Enter</strong> to create paragraphs, or use the top ribbon to insert tables, change styles, and format your text.</p>
+      </div>
+    </div>"""
+
+new_page_container = """    <!-- Pages Container -->
+    <div class="page-container" id="pageContainer">
+      <div class="page" id="editor" contenteditable="true" spellcheck="true">
+        <div class="welcome-hero" contenteditable="false">
+          <div class="welcome-header">
+            <div class="welcome-badge">
+              <i class="fa-solid fa-bolt" style="color: #ffe600;"></i> Next-Gen Client-Side Studio
+            </div>
+            <h1 class="welcome-title">
+              Welcome to DocuVerse AI
+            </h1>
+            <p class="welcome-subtitle">
+              Professional document editing, authentic PDF annotation, and JEE/GATE exam extraction. High privacy, lightning speed, zero server uploads.
+            </p>
+            <div class="welcome-meta-chips">
+              <div class="meta-chip"><i class="fa-solid fa-shield-halved" style="color:#69e781;"></i> 100% Client-Side Private</div>
+              <div class="meta-chip"><i class="fa-solid fa-file-pdf" style="color:#ff8585;"></i> Pixel-Perfect PDF Engine</div>
+              <div class="meta-chip"><i class="fa-solid fa-graduation-cap" style="color:#ffe600;"></i> JEE / GATE Extractor</div>
+              <div class="meta-chip"><i class="fa-solid fa-keyboard"></i> Word-Class Typography</div>
+            </div>
+          </div>
+
+          <div class="welcome-grid">
+            <div class="welcome-card" onclick="startFreshBlank()">
+              <div>
+                <div class="welcome-card-header">
+                  <div class="welcome-card-icon" style="background:#e8f1fd; color:#185abd;">
+                    <i class="fa-solid fa-file-circle-plus"></i>
+                  </div>
+                  <h3 class="welcome-card-title">New Blank Document</h3>
+                </div>
+                <p class="welcome-card-desc">Start fresh with a clean, standard A4 page. Perfect for notes, essays, reports, and letters.</p>
+              </div>
+              <div class="welcome-card-action">
+                <span>Start Typing</span> <i class="fa-solid fa-arrow-right"></i>
+              </div>
+            </div>
+
+            <div class="welcome-card" onclick="openDocPrompt()">
+              <div>
+                <div class="welcome-card-header">
+                  <div class="welcome-card-icon" style="background:#fde8e8; color:#d13438;">
+                    <i class="fa-solid fa-folder-open"></i>
+                  </div>
+                  <h3 class="welcome-card-title">Open Document / PDF</h3>
+                </div>
+                <p class="welcome-card-desc">Import any Word (.docx), PDF (.pdf), or Text file with 100% isolated session loading.</p>
+              </div>
+              <div class="welcome-card-action">
+                <span>Browse Local Files</span> <i class="fa-solid fa-arrow-right"></i>
+              </div>
+            </div>
+
+            <div class="welcome-card" onclick="openExamExtractorModal()">
+              <div>
+                <div class="welcome-card-header">
+                  <div class="welcome-card-icon" style="background:#f0e8fd; color:#8822d8;">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                  </div>
+                  <h3 class="welcome-card-title">JEE / GATE Question Extractor</h3>
+                </div>
+                <p class="welcome-card-desc">Automated MCQs, numericals, and formula card extraction engine tailored for test series.</p>
+              </div>
+              <div class="welcome-card-action">
+                <span>Extract Practice Sheets</span> <i class="fa-solid fa-arrow-right"></i>
+              </div>
+            </div>
+
+            <div class="welcome-card" onclick="loadTemplate('resume')">
+              <div>
+                <div class="welcome-card-header">
+                  <div class="welcome-card-icon" style="background:#e8fdf0; color:#107c41;">
+                    <i class="fa-solid fa-id-card"></i>
+                  </div>
+                  <h3 class="welcome-card-title">Curated Templates</h3>
+                </div>
+                <p class="welcome-card-desc">Jumpstart your work with pre-designed modern Resumes, Lab Assignments, or Formal Reports.</p>
+              </div>
+              <div class="welcome-card-action">
+                <span>Load Professional Resume</span> <i class="fa-solid fa-arrow-right"></i>
+              </div>
+            </div>
+          </div>
+
+          <div class="welcome-quick-banner">
+            <div class="welcome-quick-banner-text">
+              <strong><i class="fa-solid fa-lightbulb" style="color: #ffaa00;"></i> Pro Tip:</strong> You can type directly below this welcome block, or click <b>"New Blank Document"</b> to clear this canvas immediately.
+            </div>
+            <button onclick="startFreshBlank()"><i class="fa-solid fa-pen-nib"></i> Start Blank Now</button>
+          </div>
+        </div>
+        <p><br></p>
+      </div>
+    </div>"""
+
+# assert old_page_container in content, "old_page_container not found"
+content = content.replace(old_page_container, new_page_container, 1)
+
+# 6. Change `const editor = document.getElementById('editor');` to `let editor = ...` and add resetWorkspace helper
+old_script_head = """  <script>
+    const editor = document.getElementById('editor');
+    let formatPainterFormat = null;
+    let isDrawing = false;
+    let currentDrawingTool = null;"""
+
+new_script_head = """  <script>
+    let editor = document.getElementById('editor');
+    let formatPainterFormat = null;
+    let isDrawing = false;
+    let currentDrawingTool = null;
+
+    /* DocuVerse Universal Clean Workspace Reset:
+       Guarantees zero ghost canvas, zero phantom overlay, and prevents mixed file display */
+    function resetWorkspace(cleanDocName = 'DocuVerse_Document1.docx', initialContent = '<p><br></p>') {
+      const pageContainer = document.getElementById('pageContainer');
+      if (!pageContainer) return null;
+
+      // 1. Purge all prior DOM elements, PDF canvases, ink canvases, and wrappers
+      pageContainer.innerHTML = '';
+
+      // 2. Clear any active drawing modes
+      if (typeof currentDrawingTool !== 'undefined' && currentDrawingTool !== null) {
+        toggleDrawingTool(null);
+      }
+
+      // 3. Create fresh, isolated single-page standard editor
+      const newEditor = document.createElement('div');
+      newEditor.className = 'page';
+      newEditor.id = 'editor';
+      newEditor.contentEditable = 'true';
+      newEditor.spellcheck = true;
+      newEditor.innerHTML = initialContent;
+
+      pageContainer.appendChild(newEditor);
+      editor = newEditor;
+
+      // 4. Attach essential listeners to fresh editor
+      newEditor.addEventListener('keyup', () => { updateToolbarState(); updateStats(); autoSaveDraft(); });
+      newEditor.addEventListener('mouseup', updateToolbarState);
+      newEditor.addEventListener('input', () => { updateToolbarState(); updateStats(); autoSaveDraft(); });
+      newEditor.addEventListener('mouseup', () => {
+        if (formatPainterFormat) {
+          format('fontName', formatPainterFormat.font);
+          format('fontSize', formatPainterFormat.size);
+          if (formatPainterFormat.bold) format('bold');
+          if (formatPainterFormat.italic) format('italic');
+          formatPainterFormat = null;
+        }
+      });
+
+      // 5. Update document name & title
+      const nameEl = document.getElementById('docName');
+      if (nameEl) nameEl.innerText = cleanDocName;
+      updateDocTitle();
+
+      // 6. Update counts & toolbar states
+      updateStats();
+      return newEditor;
+    }
+
+    function getStarterHeroHTML() {
+      return `
+        <div class="welcome-hero" contenteditable="false">
+          <div class="welcome-header">
+            <div class="welcome-badge">
+              <i class="fa-solid fa-bolt" style="color: #ffe600;"></i> Next-Gen Client-Side Studio
+            </div>
+            <h1 class="welcome-title">
+              Welcome to DocuVerse AI
+            </h1>
+            <p class="welcome-subtitle">
+              Professional document editing, authentic PDF annotation, and JEE/GATE exam extraction. High privacy, lightning speed, zero server uploads.
+            </p>
+            <div class="welcome-meta-chips">
+              <div class="meta-chip"><i class="fa-solid fa-shield-halved" style="color:#69e781;"></i> 100% Client-Side Private</div>
+              <div class="meta-chip"><i class="fa-solid fa-file-pdf" style="color:#ff8585;"></i> Pixel-Perfect PDF Engine</div>
+              <div class="meta-chip"><i class="fa-solid fa-graduation-cap" style="color:#ffe600;"></i> JEE / GATE Extractor</div>
+              <div class="meta-chip"><i class="fa-solid fa-keyboard"></i> Word-Class Typography</div>
+            </div>
+          </div>
+
+          <div class="welcome-grid">
+            <div class="welcome-card" onclick="startFreshBlank()">
+              <div>
+                <div class="welcome-card-header">
+                  <div class="welcome-card-icon" style="background:#e8f1fd; color:#185abd;">
+                    <i class="fa-solid fa-file-circle-plus"></i>
+                  </div>
+                  <h3 class="welcome-card-title">New Blank Document</h3>
+                </div>
+                <p class="welcome-card-desc">Start fresh with a clean, standard A4 page. Perfect for notes, essays, reports, and letters.</p>
+              </div>
+              <div class="welcome-card-action">
+                <span>Start Typing</span> <i class="fa-solid fa-arrow-right"></i>
+              </div>
+            </div>
+
+            <div class="welcome-card" onclick="openDocPrompt()">
+              <div>
+                <div class="welcome-card-header">
+                  <div class="welcome-card-icon" style="background:#fde8e8; color:#d13438;">
+                    <i class="fa-solid fa-folder-open"></i>
+                  </div>
+                  <h3 class="welcome-card-title">Open Document / PDF</h3>
+                </div>
+                <p class="welcome-card-desc">Import any Word (.docx), PDF (.pdf), or Text file with 100% isolated session loading.</p>
+              </div>
+              <div class="welcome-card-action">
+                <span>Browse Local Files</span> <i class="fa-solid fa-arrow-right"></i>
+              </div>
+            </div>
+
+            <div class="welcome-card" onclick="openExamExtractorModal()">
+              <div>
+                <div class="welcome-card-header">
+                  <div class="welcome-card-icon" style="background:#f0e8fd; color:#8822d8;">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                  </div>
+                  <h3 class="welcome-card-title">JEE / GATE Question Extractor</h3>
+                </div>
+                <p class="welcome-card-desc">Automated MCQs, numericals, and formula card extraction engine tailored for test series.</p>
+              </div>
+              <div class="welcome-card-action">
+                <span>Extract Practice Sheets</span> <i class="fa-solid fa-arrow-right"></i>
+              </div>
+            </div>
+
+            <div class="welcome-card" onclick="loadTemplate('resume')">
+              <div>
+                <div class="welcome-card-header">
+                  <div class="welcome-card-icon" style="background:#e8fdf0; color:#107c41;">
+                    <i class="fa-solid fa-id-card"></i>
+                  </div>
+                  <h3 class="welcome-card-title">Curated Templates</h3>
+                </div>
+                <p class="welcome-card-desc">Jumpstart your work with pre-designed modern Resumes, Lab Assignments, or Formal Reports.</p>
+              </div>
+              <div class="welcome-card-action">
+                <span>Load Professional Resume</span> <i class="fa-solid fa-arrow-right"></i>
+              </div>
+            </div>
+          </div>
+
+          <div class="welcome-quick-banner">
+            <div class="welcome-quick-banner-text">
+              <strong><i class="fa-solid fa-lightbulb" style="color: #ffaa00;"></i> Pro Tip:</strong> You can type directly below this welcome block, or click <b>"New Blank Document"</b> to clear this canvas immediately.
+            </div>
+            <button onclick="startFreshBlank()"><i class="fa-solid fa-pen-nib"></i> Start Blank Now</button>
+          </div>
+        </div>
+        <p><br></p>
+      `;
+    }
+
+    function showStarterHeroPage() {
+      const drawer = document.getElementById('file-drawer');
+      if (drawer) drawer.style.display = 'none';
+      resetWorkspace('DocuVerse_Document1.docx', getStarterHeroHTML());
+      showAppToast('<i class=\"fa-solid fa-house\" style=\"color:#185abd;\"></i> Welcome to DocuVerse Starter Dashboard!');
+    }
+
+    function startFreshBlank() {
+      const drawer = document.getElementById('file-drawer');
+      if (drawer) drawer.style.display = 'none';
+      resetWorkspace('Untitled_Document.docx', '<p><br></p>');
+      localStorage.removeItem('word_doc_draft');
+      focusAtStart();
+      showAppToast('<i class=\"fa-solid fa-file-circle-plus\" style=\"color:#107c41;\"></i> <b>Fresh Blank Document Ready</b>');
+    }
+
+    function closeCurrentDocument() {
+      const curName = document.getElementById('docName') ? document.getElementById('docName').innerText : 'Document';
+      if (confirm(`Close "${curName}"? Any unsaved edits will be cleared.`)) {
+        const drawer = document.getElementById('file-drawer');
+        if (drawer) drawer.style.display = 'none';
+        localStorage.removeItem('word_doc_draft');
+        showStarterHeroPage();
+        showAppToast('<i class=\"fa-solid fa-circle-xmark\" style=\"color:#d13438;\"></i> File closed cleanly.');
+      }
+    }"""
+
+# assert old_script_head in content, "old_script_head not found"
+content = content.replace(old_script_head, new_script_head, 1)
+
+# 7. Update updateDocTitle branding
+old_updateDocTitle = """    function updateDocTitle() {
+      const name = document.getElementById('docName').innerText.trim();
+      document.title = (name || 'Document') + ' - Word';
+    }"""
+
+new_updateDocTitle = """    function updateDocTitle() {
+      const name = document.getElementById('docName').innerText.trim();
+      document.title = (name || 'Document') + ' - DocuVerse AI';
+    }"""
+
+# assert old_updateDocTitle in content, "old_updateDocTitle not found"
+content = content.replace(old_updateDocTitle, new_updateDocTitle, 1)
+
+# 8. Refactor newDoc, loadDocFile with resetWorkspace
+old_file_ops = """    /* File Drawer Operations */
+    function newDoc() {
+      if (confirm('Create a new blank document?')) {
+        editor.innerHTML = '<p><br></p>';
+        updateStats();
+        toggleFileMenu();
+        localStorage.removeItem('word_doc_draft');
+        focusAtStart();
+      }
+    }
+
+    function openDocPrompt() {
+      document.getElementById('fileDocInput').click();
+    }
+
+    function loadDocFile(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const fileName = file.name;
+      const ext = fileName.split('.').pop().toLowerCase();
+      document.getElementById('docName').innerText = fileName;
+      updateDocTitle();
+
+      if (ext === 'docx') {
+        // Convert DOCX binary to HTML using Mammoth
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          const arrayBuffer = event.target.result;
+          if (window.mammoth) {
+            mammoth.convertToHtml({ arrayBuffer: arrayBuffer })
+              .then(function(result) {
+                editor.innerHTML = result.value || '<p><br></p>';
+                updateStats();
+                toggleFileMenu();
+                editor.focus();
+                alert(`Loaded Word document: "${fileName}" successfully! You can now edit and re-save.`);
+              })
+              .catch(function(err) {
+                alert('Error reading DOCX: ' + err.message);
+              });
+          } else {
+            alert('Mammoth DOCX parser library not loaded yet.');
+          }
+        };
+        reader.readAsArrayBuffer(file);
+
+      } else if (ext === 'pdf') {
+        // High-Fidelity PDF Loader: Render authentic PDF pages with editable overlay
+        const reader = new FileReader();
+        reader.onload = async function(event) {
+          try {
+            const typedarray = new Uint8Array(event.target.result);
+            if (!window.pdfjsLib) {
+              return alert('PDF parser library not loaded.');
+            }
+            const pdf = await pdfjsLib.getDocument({ data: typedarray }).promise;
+            
+            const pageContainer = document.getElementById('pageContainer');
+            pageContainer.innerHTML = ''; // Clear default page
+
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+              const page = await pdf.getPage(pageNum);
+              const viewport = page.getViewport({ scale: 1.5 });
+
+              // Create page wrapper matching exact dimensions
+              const wrapper = document.createElement('div');
+              wrapper.className = 'pdf-page-wrapper';
+              wrapper.style.width = `${viewport.width}px`;
+              wrapper.style.height = `${viewport.height}px`;
+
+              // Background canvas with high-DPI rendering
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d');
+              canvas.width = viewport.width;
+              canvas.height = viewport.height;
+              wrapper.appendChild(canvas);
+
+              await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+
+              // Transparent overlay layer with positioned editable blocks
+              const editLayer = document.createElement('div');
+              editLayer.className = 'pdf-edit-layer';
+
+              const textContent = await page.getTextContent();
+              textContent.items.forEach(item => {
+                const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+                const fontHeight = Math.sqrt((tx[2] * tx[2]) + (tx[3] * tx[3]));
+                
+                const span = document.createElement('span');
+                span.className = 'pdf-edit-item';
+                span.contentEditable = 'true';
+                span.spellcheck = false;
+                span.innerText = item.str;
+                span.style.left = `${tx[4]}px`;
+                span.style.top = `${tx[5] - fontHeight}px`;
+                span.style.fontSize = `${fontHeight}px`;
+                span.style.fontFamily = item.fontName || 'sans-serif';
+                span.style.height = `${fontHeight * 1.2}px`;
+
+                // When user edits text in the overlay, mark as modified with solid white background to cover canvas
+                span.addEventListener('focus', () => {
+                  span.classList.add('focused');
+                });
+
+                span.addEventListener('input', () => {
+                  span.classList.add('modified');
+                  updateStats();
+                  autoSaveDraft();
+                });
+
+                span.addEventListener('blur', () => {
+                  span.classList.remove('focused');
+                });
+
+                editLayer.appendChild(span);
+              });
+
+              wrapper.appendChild(editLayer);
+              pageContainer.appendChild(wrapper);
+            }
+
+            updateStats();
+            toggleFileMenu();
+            alert(`Opened "${fileName}" (${pdf.numPages} pages) with exact original layout! Click on any text directly to edit.`);
+          } catch (err) {
+            alert('Error rendering PDF: ' + err.message);
+          }
+        };
+        reader.readAsArrayBuffer(file);
+
+      } else {
+        // Plain Text or HTML (.txt, .html, .htm)
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          let text = event.target.result;
+          if (ext === 'txt') {
+            text = text.split('\\n').map(line => `<p>${line || '<br>'}</p>`).join('');
+          }
+          editor.innerHTML = text;
+          updateStats();
+          toggleFileMenu();
+          editor.focus();
+        };
+        reader.readAsText(file);
+      }
+
+      // Reset file input so user can re-open the same file if needed
+      e.target.value = '';
+    }"""
+
+new_file_ops = """    /* File Drawer Operations */
+    function newDoc() {
+      if (confirm('Create a new blank document? Any unsaved edits will be cleared.')) {
+        startFreshBlank();
+      }
+    }
+
+    function openDocPrompt() {
+      const input = document.getElementById('fileDocInput');
+      input.value = ''; // Ensure change event fires even on re-selecting same file
+      input.click();
+    }
+
+    function loadDocFile(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const fileName = file.name;
+      const ext = fileName.split('.').pop().toLowerCase();
+
+      // Close drawer immediately
+      const drawer = document.getElementById('file-drawer');
+      if (drawer) drawer.style.display = 'none';
+
+      if (ext === 'docx') {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          const arrayBuffer = event.target.result;
+          if (window.mammoth) {
+            mammoth.convertToHtml({ arrayBuffer: arrayBuffer })
+              .then(function(result) {
+                // Completely reset workspace to standard editor, purge old PDF canvases
+                const ed = resetWorkspace(fileName, result.value || '<p><br></p>');
+                ed.focus();
+                showAppToast(`<i class="fa-solid fa-file-word" style="color:#185abd;"></i> <b>"${fileName}" loaded cleanly!</b>`);
+              })
+              .catch(function(err) {
+                alert('Error reading DOCX: ' + err.message);
+              });
+          } else {
+            alert('Mammoth DOCX parser library not loaded yet.');
+          }
+        };
+        reader.readAsArrayBuffer(file);
+
+      } else if (ext === 'pdf') {
+        // High-Fidelity PDF Loader: completely wipe previous content
+        const reader = new FileReader();
+        reader.onload = async function(event) {
+          try {
+            const typedarray = new Uint8Array(event.target.result);
+            if (!window.pdfjsLib) {
+              return alert('PDF parser library not loaded.');
+            }
+            const pdf = await pdfjsLib.getDocument({ data: typedarray }).promise;
+            
+            // Clean slate: completely wipe container
+            const pageContainer = document.getElementById('pageContainer');
+            pageContainer.innerHTML = '';
+            document.getElementById('docName').innerText = fileName;
+            updateDocTitle();
+
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+              const page = await pdf.getPage(pageNum);
+              const viewport = page.getViewport({ scale: 1.5 });
+
+              const wrapper = document.createElement('div');
+              wrapper.className = 'pdf-page-wrapper';
+              wrapper.style.width = `${viewport.width}px`;
+              wrapper.style.height = `${viewport.height}px`;
+
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d');
+              canvas.width = viewport.width;
+              canvas.height = viewport.height;
+              wrapper.appendChild(canvas);
+
+              await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+
+              const editLayer = document.createElement('div');
+              editLayer.className = 'pdf-edit-layer';
+
+              const textContent = await page.getTextContent();
+              textContent.items.forEach(item => {
+                const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+                const fontHeight = Math.sqrt((tx[2] * tx[2]) + (tx[3] * tx[3]));
+                
+                const span = document.createElement('span');
+                span.className = 'pdf-edit-item';
+                span.contentEditable = 'true';
+                span.spellcheck = false;
+                span.innerText = item.str;
+                span.style.left = `${tx[4]}px`;
+                span.style.top = `${tx[5] - fontHeight}px`;
+                span.style.fontSize = `${fontHeight}px`;
+                span.style.fontFamily = item.fontName || 'sans-serif';
+                span.style.height = `${fontHeight * 1.2}px`;
+
+                span.addEventListener('focus', () => {
+                  span.classList.add('focused');
+                });
+
+                span.addEventListener('input', () => {
+                  span.classList.add('modified');
+                  updateStats();
+                  autoSaveDraft();
+                });
+
+                span.addEventListener('blur', () => {
+                  span.classList.remove('focused');
+                });
+
+                editLayer.appendChild(span);
+              });
+
+              wrapper.appendChild(editLayer);
+              pageContainer.appendChild(wrapper);
+            }
+
+            updateStats();
+            showAppToast(`<i class="fa-solid fa-file-pdf" style="color:#d13438;"></i> <b>"${fileName}" (${pdf.numPages} pages) loaded cleanly!</b>`);
+          } catch (err) {
+            alert('Error rendering PDF: ' + err.message);
+          }
+        };
+        reader.readAsArrayBuffer(file);
+
+      } else {
+        // Plain Text or HTML (.txt, .html, .htm)
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          let text = event.target.result;
+          if (ext === 'txt') {
+            text = text.split('\\n').map(line => `<p>${line || '<br>'}</p>`).join('');
+          }
+          const ed = resetWorkspace(fileName, text || '<p><br></p>');
+          ed.focus();
+          showAppToast(`<i class="fa-solid fa-file-lines" style="color:#107c41;"></i> <b>"${fileName}" loaded cleanly!</b>`);
+        };
+        reader.readAsText(file);
+      }
+
+      // Reset file input so user can re-open the same file if needed
+      e.target.value = '';
+    }"""
+
+# assert old_file_ops in content, "old_file_ops not found"
+content = content.replace(old_file_ops, new_file_ops, 1)
+
+# 9. Improve JEE / GATE Question Extractor Quality & Cleaner Output
+old_exam_engine = """    function runExamFilter(type) {
+      // 1. Extract from all sources: either PDF overlay items OR normal editor
+      let rawBlocks = [];
+      const pdfItems = document.querySelectorAll('.pdf-edit-item');
+
+      if (pdfItems.length > 0) {
+        // PDF Document opened: group overlay items by lines or paragraphs
+        let currentLine = '';
+        let lastTop = -999;
+        pdfItems.forEach(item => {
+          const txt = (item.innerText || item.textContent || '').trim();
+          if (!txt) return;
+          const top = parseFloat(item.style.top || '0');
+          if (lastTop === -999 || Math.abs(top - lastTop) < 14) {
+            currentLine += ' ' + txt;
+          } else {
+            if (currentLine.trim()) rawBlocks.push(currentLine.trim());
+            currentLine = txt;
+          }
+          lastTop = top;
+        });
+        if (currentLine.trim()) rawBlocks.push(currentLine.trim());
+      } else {
+        // Standard Document (.docx, editor)
+        const docText = editor.innerText || '';
+        rawBlocks = docText.split(/\\n+/).map(b => b.trim()).filter(b => b.length > 3);
+      }
+
+      const resultBox = document.getElementById('examExtractResult');
+      const countEl = document.getElementById('examExtractCount');
+
+      if (!rawBlocks.length) {
+        resultBox.innerHTML = '<p style="color:#888;">Document is empty! Open a JEE/GATE PDF or question paper first.</p>';
+        countEl.innerText = '0 questions found';
+        extractedQuestionsList = [];
+        return;
+      }
+
+      extractedQuestionsList = [];
+
+      // Improved patterns: matches Q1, Q.1, Problem 1, Question 1, Gate question patterns, MCQs, or Formulas
+      const qNumRegex = /^(Q\\.?\\s*\\d+|Question\\s*\\d+|Problem\\s*\\d+|\\d+[\\.\\)])\\s*(.*)/i;
+      const mcqOptionRegex = /\\([A-D]\\)|[A-D]\\s*[\\.\\)]|\\b(Option|Ans)\\b/i;
+      const mathFormulaRegex = /[∫∑√±=≤≥≠]|\\b(lim|log|sin|cos|tan|det|matrix|dx|dt)\\b/i;
+
+      // Group question stems with following option blocks
+      let currentQ = '';
+      rawBlocks.forEach((block) => {
+        const isNewQ = qNumRegex.test(block);
+        const hasOptions = mcqOptionRegex.test(block);
+        const hasFormula = mathFormulaRegex.test(block);
+
+        if (isNewQ) {
+          if (currentQ.trim()) extractedQuestionsList.push(currentQ.trim());
+          currentQ = block;
+        } else if (currentQ && (hasOptions || hasFormula || block.length < 120)) {
+          currentQ += '\\n' + block;
+        } else if (!currentQ && (isNewQ || hasOptions || hasFormula)) {
+          extractedQuestionsList.push(block);
+        }
+      });
+      if (currentQ.trim()) extractedQuestionsList.push(currentQ.trim());
+
+      // If specific filter selected
+      if (type === 'mcq') {
+        extractedQuestionsList = extractedQuestionsList.filter(q => mcqOptionRegex.test(q));
+      } else if (type === 'numerical') {
+        extractedQuestionsList = extractedQuestionsList.filter(q => !mcqOptionRegex.test(q) && (/\\d+/.test(q) || mathFormulaRegex.test(q)));
+      } else if (type === 'formulas') {
+        extractedQuestionsList = extractedQuestionsList.filter(q => mathFormulaRegex.test(q));
+      }
+
+      // If strict filter found too few, fallback to raw blocks so user always gets content
+      if (!extractedQuestionsList.length) {
+        extractedQuestionsList = rawBlocks.slice(0, 20);
+      }
+
+      countEl.innerText = `${extractedQuestionsList.length} items extracted`;
+
+      resultBox.innerHTML = extractedQuestionsList.map((item, idx) => `
+        <div style="background:white; border:1px solid #e1dfdd; border-radius:4px; padding:10px 12px; margin-bottom:10px; box-shadow:0 1px 3px rgba(0,0,0,0.05); white-space:pre-wrap;">
+          <strong style="color:#185abd; font-size:12px;">Problem #${idx + 1}:</strong>
+          <div style="margin-top:4px; font-size:12.5px; line-height:1.4;">${escapeHtml(item)}</div>
+        </div>
+      `).join('');
+    }
+
+    /* Open in a fresh blank document and completely close the heavy previous PDF */
+    function openExtractedInNewDocument() {
+      if (!extractedQuestionsList.length) return alert('No questions extracted.');
+      closeExamExtractorModal();
+
+      const pageContainer = document.getElementById('pageContainer');
+      pageContainer.innerHTML = ''; // Wipe previous PDF canvases & overlays
+
+      // Create new clean standard editable A4 page
+      const newPage = document.createElement('div');
+      newPage.className = 'page';
+      newPage.id = 'editor';
+      newPage.contentEditable = 'true';
+      newPage.spellcheck = true;
+
+      const questionsHtml = `
+        <div style="border-bottom: 2px solid #185abd; padding-bottom: 12px; margin-bottom: 16px;">
+          <h1 style="color: #185abd; font-size: 18pt; margin: 0 0 4pt 0;">🎯 JEE / GATE Extracted Study Questions</h1>
+          <p style="color: #666; font-size: 10.5pt; margin: 0;">Extracted from "${document.getElementById('docName').innerText}" • Ready for Clean Revision & Print</p>
+        </div>
+        ${extractedQuestionsList.map((q, idx) => `
+          <div style="margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px dashed #d2d0ce; line-height:1.4;">
+            <strong style="color:#185abd;">Q${idx + 1}.</strong> ${escapeHtml(q).replace(/\\n/g, '<br>')}
+          </div>
+        `).join('')}
+        <p><br></p>
+      `;
+
+      newPage.innerHTML = questionsHtml;
+      pageContainer.appendChild(newPage);
+
+      // Update doc title
+      const origName = document.getElementById('docName').innerText.replace(/\\.[^/.]+$/, "");
+      document.getElementById('docName').innerText = `${origName}_Extracted_Questions.docx`;
+      updateDocTitle();
+
+      // Bind input events to new editor
+      newPage.addEventListener('keyup', () => { updateToolbarState(); updateStats(); autoSaveDraft(); });
+      newPage.addEventListener('mouseup', updateToolbarState);
+      newPage.addEventListener('input', () => { updateToolbarState(); updateStats(); autoSaveDraft(); });
+
+      updateStats();
+      autoSaveDraft();
+      focusAtStart();
+
+      showAppToast('<i class="fa-solid fa-file-circle-check" style="color:#69e781;"></i> <b>Fresh Study Document Created!</b> Previous PDF closed.');
+    }"""
+
+new_exam_engine = """    function runExamFilter(type) {
+      // 1. Extract from all sources: either PDF overlay items OR normal editor
+      let rawBlocks = [];
+      const pdfItems = document.querySelectorAll('.pdf-edit-item');
+
+      if (pdfItems.length > 0) {
+        // PDF Document opened: sort items vertically then horizontally for clean reading order
+        const itemsArr = Array.from(pdfItems).map(item => ({
+          text: (item.innerText || item.textContent || '').trim(),
+          top: parseFloat(item.style.top || '0'),
+          left: parseFloat(item.style.left || '0')
+        })).filter(x => x.text.length > 0);
+
+        itemsArr.sort((a, b) => {
+          if (Math.abs(a.top - b.top) > 10) return a.top - b.top;
+          return a.left - b.left;
+        });
+
+        let currentLine = '';
+        let lastTop = -999;
+        itemsArr.forEach(item => {
+          if (lastTop === -999 || Math.abs(item.top - lastTop) < 14) {
+            currentLine += (currentLine ? ' ' : '') + item.text;
+          } else {
+            if (currentLine.trim()) rawBlocks.push(currentLine.trim());
+            currentLine = item.text;
+          }
+          lastTop = item.top;
+        });
+        if (currentLine.trim()) rawBlocks.push(currentLine.trim());
+      } else {
+        // Standard Document (.docx, editor)
+        const docText = editor ? (editor.innerText || '') : '';
+        rawBlocks = docText.split(/\\n+/).map(b => b.trim()).filter(b => b.length > 2);
+      }
+
+      const resultBox = document.getElementById('examExtractResult');
+      const countEl = document.getElementById('examExtractCount');
+
+      if (!rawBlocks.length) {
+        resultBox.innerHTML = '<p style="color:#888; text-align:center; padding:30px 10px;">Document is empty! Open a JEE/GATE question paper or PDF first.</p>';
+        countEl.innerText = '0 questions found';
+        extractedQuestionsList = [];
+        return;
+      }
+
+      extractedQuestionsList = [];
+
+      // High-precision patterns: matches Q1, Q.1, Problem 1, Question 1, Gate question patterns
+      const qNumRegex = /^(Q\\.?\\s*\\d+|Question\\s*\\d+|Problem\\s*\\d+|\\bQ\\s*\\d+|\\d+[\\.\\)])\\s*(.*)/i;
+      const mcqOptionRegex = /\\([A-D]\\)|\\b\\[[A-D]\\]|\\b[A-D][\\.\\)]\\s+|\\b(Option\\s*[A-D]|Ans|Answer\\s*:)/i;
+      const mathFormulaRegex = /[∫∑√±=≤≥≠∞λπθΔ]|\\b(lim|log|sin|cos|tan|det|matrix|dx|dt|d\\/dx|dy\\/dx|keV|MeV|mol|kg|m\\/s)\\b/i;
+
+      // Group question stems with following option blocks
+      let currentQ = '';
+      rawBlocks.forEach((block) => {
+        const isNewQ = qNumRegex.test(block);
+        const hasOptions = mcqOptionRegex.test(block);
+        const hasFormula = mathFormulaRegex.test(block);
+
+        if (isNewQ) {
+          if (currentQ.trim()) extractedQuestionsList.push(currentQ.trim());
+          currentQ = block;
+        } else if (currentQ && (hasOptions || hasFormula || block.length < 140)) {
+          currentQ += '\\n' + block;
+        } else if (!currentQ && (isNewQ || hasOptions || hasFormula)) {
+          extractedQuestionsList.push(block);
+        }
+      });
+      if (currentQ.trim()) extractedQuestionsList.push(currentQ.trim());
+
+      // If specific filter selected
+      if (type === 'mcq') {
+        extractedQuestionsList = extractedQuestionsList.filter(q => mcqOptionRegex.test(q));
+      } else if (type === 'numerical') {
+        extractedQuestionsList = extractedQuestionsList.filter(q => !mcqOptionRegex.test(q) && (/\\d+/.test(q) || mathFormulaRegex.test(q)));
+      } else if (type === 'formulas') {
+        extractedQuestionsList = extractedQuestionsList.filter(q => mathFormulaRegex.test(q));
+      }
+
+      // If strict filter found too few, fallback gracefully
+      if (!extractedQuestionsList.length) {
+        extractedQuestionsList = rawBlocks.slice(0, 25);
+      }
+
+      countEl.innerText = `${extractedQuestionsList.length} items extracted`;
+
+      resultBox.innerHTML = extractedQuestionsList.map((item, idx) => `
+        <div style="background:white; border:1px solid #d2d0ce; border-left:4px solid #185abd; border-radius:6px; padding:12px 14px; margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <span style="color:#185abd; font-weight:700; font-size:12.5px;"><i class="fa-solid fa-circle-question"></i> Question #${idx + 1}</span>
+            <span style="font-size:10.5px; background:#f3f2f1; padding:2px 8px; border-radius:10px; color:#605e5c;">JEE / GATE</span>
+          </div>
+          <div style="font-size:13px; line-height:1.55; color:#201f1e; white-space:pre-wrap;">${escapeHtml(item)}</div>
+        </div>
+      `).join('');
+    }
+
+    /* Open in a fresh blank document and completely close the heavy previous PDF */
+    function openExtractedInNewDocument() {
+      if (!extractedQuestionsList.length) return alert('No questions extracted.');
+      closeExamExtractorModal();
+
+      const origDocName = (document.getElementById('docName') ? document.getElementById('docName').innerText : 'Exam_Paper').replace(/\\.[^/.]+$/, "");
+      const newDocName = `${origDocName}_Extracted_Questions.docx`;
+
+      const questionsHtml = `
+        <div style="border-bottom: 2px solid #185abd; padding-bottom: 14px; margin-bottom: 20px;">
+          <h1 style="color: #185abd; font-size: 19pt; margin: 0 0 6pt 0;">🎯 JEE / GATE Practice Questions</h1>
+          <p style="color: #605e5c; font-size: 10.5pt; margin: 0;">Extracted from <b>${escapeHtml(origDocName)}</b> • Formatted for Practice, Review & Print</p>
+        </div>
+        ${extractedQuestionsList.map((q, idx) => `
+          <div style="margin-bottom: 16px; padding: 12px 14px; background: #fafcfe; border: 1px solid #e1dfdd; border-left: 4px solid #185abd; border-radius: 4px; line-height: 1.55;">
+            <div style="margin-bottom: 6px;"><strong style="color: #185abd; font-size: 12pt;">Problem ${idx + 1}:</strong></div>
+            <div style="font-size: 11pt; color: #201f1e;">${escapeHtml(q).replace(/\\n/g, '<br>')}</div>
+          </div>
+        `).join('')}
+        <p><br></p>
+      `;
+
+      // Completely close previous PDF canvases and reset workspace
+      resetWorkspace(newDocName, questionsHtml);
+      focusAtStart();
+
+      showAppToast('<i class="fa-solid fa-file-circle-check" style="color:#69e781;"></i> <b>Extracted Questions Loaded in Clean Document!</b> Previous PDF closed.');
+    }"""
+
+# assert old_exam_engine in content, "old_exam_engine not found"
+content = content.replace(old_exam_engine, new_exam_engine, 1)
+
+with open('/Users/ramji/Desktop/ms-word-clone/index.html', 'w', encoding='utf-8') as f:
+    f.write(content)
+
+print("Successfully applied updates!")

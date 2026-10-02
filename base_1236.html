@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document1 - Word</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #185abd;
+      --primary-dark: #103f8a;
+      --bg-ribbon: #f3f2f1;
+      --bg-workspace: #e1dfdd;
+      --text-main: #201f1e;
+      --border: #d2d0ce;
+      --hover: #e1dfdd;
+      --active: #cde6f7;
+      --active-border: #92c0e0;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg-workspace);
+    }
+
+    /* Top Title Bar */
+    .title-bar {
+      background-color: var(--primary);
+      color: white;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      font-size: 13px;
+      user-select: none;
+    }
+    .title-left { display: flex; align-items: center; gap: 14px; }
+    .title-left i { font-size: 18px; }
+    .title-center {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      background: rgba(255,255,255,0.12);
+      padding: 4px 16px;
+      border-radius: 4px;
+    }
+    .title-right { display: flex; gap: 8px; }
+    .title-btn {
+      background: transparent;
+      border: none;
+      color: white;
+      cursor: pointer;
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .title-btn:hover { background: var(--primary-dark); }
+
+    /* Ribbon Tabs */
+    .ribbon-container {
+      background-color: var(--bg-ribbon);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+      user-select: none;
+    }
+    .ribbon-tabs {
+      display: flex;
+      list-style: none;
+      padding-left: 10px;
+      padding-top: 4px;
+      gap: 2px;
+    }
+    .ribbon-tab {
+      padding: 6px 14px;
+      cursor: pointer;
+      color: var(--text-main);
+      font-size: 13px;
+      border: 1px solid transparent;
+      border-bottom: none;
+      border-radius: 4px 4px 0 0;
+      transition: all 0.1s ease;
+    }
+    .ribbon-tab.active {
+      background-color: #fff;
+      border-color: var(--border);
+      color: var(--primary);
+      font-weight: 600;
+      border-bottom: 2px solid #fff;
+      margin-bottom: -1px;
+      z-index: 2;
+    }
+    .ribbon-tab:hover:not(.active) { background-color: var(--hover); }
+
+    /* Ribbon Toolbar */
+    .ribbon-toolbar {
+      background-color: #ffffff;
+      height: 98px;
+      display: flex;
+      align-items: center;
+      padding: 6px 12px;
+      gap: 12px;
+      border-top: 1px solid var(--border);
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+    .ribbon-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      border-right: 1px solid #edebe9;
+      padding-right: 12px;
+      height: 100%;
+      justify-content: space-between;
+      position: relative;
+    }
+    .ribbon-group-label {
+      font-size: 10.5px;
+      color: #797775;
+      margin-top: auto;
+      padding-top: 2px;
+    }
+    .ribbon-row {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      margin-bottom: 4px;
+    }
+
+    /* Toolbar Buttons */
+    .toolbar-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      padding: 4px 6px;
+      border-radius: 3px;
+      cursor: pointer;
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 36px;
+      height: 54px;
+      font-size: 11px;
+    }
+    .toolbar-btn.small {
+      height: 26px;
+      min-width: 26px;
+      flex-direction: row;
+      padding: 2px 4px;
+    }
+    .toolbar-btn i { font-size: 15px; margin-bottom: 3px; color: #323130; }
+    .toolbar-btn.small i { margin-bottom: 0; font-size: 12px; }
+    .toolbar-btn:hover { background-color: var(--hover); }
+    .toolbar-btn.active {
+      background-color: var(--active);
+      border-color: var(--active-border);
+      color: var(--primary-dark);
+    }
+    .toolbar-btn.active i { color: var(--primary-dark); }
+
+    .toolbar-select {
+      padding: 3px 5px;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      outline: none;
+      font-family: inherit;
+      font-size: 12px;
+      background: white;
+      height: 24px;
+    }
+    .toolbar-color {
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      border-radius: 2px;
+      background: transparent;
+    }
+
+    /* Workspace */
+    .workspace {
+      flex: 1;
+      overflow: auto;
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: var(--bg-workspace);
+    }
+
+    /* Rulers (Horizontal & Vertical) */
+    .ruler-container {
+      width: 21cm;
+      height: 18px;
+      background: #faf9f8;
+      border: 1px solid #d2d0ce;
+      border-bottom: none;
+      display: flex;
+      align-items: flex-end;
+      padding: 0 2.54cm;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      user-select: none;
+    }
+    .ruler-marks {
+      flex: 1;
+      height: 8px;
+      border-top: 1px solid #8a8886;
+      background: repeating-linear-gradient(90deg, #605e5c 0, #605e5c 1px, transparent 1px, transparent 0.5cm);
+    }
+
+    /* The Realistic A4 Document Page */
+    .page-container {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .page {
+      background-color: #ffffff;
+      width: 21cm; /* Standard A4 */
+      min-height: 29.7cm; /* Standard A4 */
+      padding: 2.54cm; /* Standard 1 inch margins */
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+      outline: none;
+      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+      font-size: 11pt;
+      line-height: 1.25;
+      color: #000000;
+      cursor: text;
+      position: relative;
+      box-sizing: border-box;
+      transition: all 0.2s ease;
+    }
+
+    /* Watermark effect */
+    .page.watermark::before {
+      content: attr(data-watermark);
+      position: absolute;
+      top: 40%;
+      left: 10%;
+      width: 80%;
+      font-size: 72pt;
+      font-weight: bold;
+      color: rgba(200, 200, 200, 0.3);
+      text-transform: uppercase;
+      transform: rotate(-35deg);
+      pointer-events: none;
+      text-align: center;
+      user-select: none;
+    }
+
+    .page p { margin-bottom: 8pt; }
+    .page h1 { font-size: 20pt; font-weight: bold; color: #185abd; margin-bottom: 12pt; }
+    .page h2 { font-size: 15pt; font-weight: bold; color: #185abd; margin-bottom: 10pt; }
+    .page h3 { font-size: 12.5pt; font-weight: bold; color: #201f1e; margin-bottom: 8pt; }
+    .page blockquote {
+      border-left: 3px solid #185abd;
+      padding-left: 14px;
+      color: #555;
+      font-style: italic;
+      margin: 12pt 0;
+    }
+    .page table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12pt 0;
+    }
+    .page table td, .page table th {
+      border: 1px solid #999;
+      padding: 8px 10px;
+      min-width: 40px;
+    }
+
+    /* Backstage Modal Menu */
+    .file-drawer {
+      display: none;
+      position: fixed;
+      top: 42px;
+      left: 0;
+      width: 280px;
+      height: calc(100vh - 42px);
+      background: #185abd;
+      color: white;
+      box-shadow: 4px 0 16px rgba(0,0,0,0.25);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+    }
+    .file-drawer-item {
+      padding: 14px 24px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 14px;
+      border-left: 4px solid transparent;
+      transition: all 0.15s ease;
+    }
+    .file-drawer-item:hover {
+      background: #103f8a;
+      border-left-color: white;
+    }
+
+    /* Status Bar */
+    .status-bar {
+      height: 24px;
+      background: var(--primary);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      font-size: 11px;
+      user-select: none;
+      z-index: 10;
+    }
+    .status-left, .status-right { display: flex; align-items: center; gap: 16px; }
+    .status-btn {
+      background: transparent;
+      border: none;
+      color: white;
+      cursor: pointer;
+      font-size: 11px;
+    }
+    .status-btn:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+  <!-- Top Title Bar -->
+  <header class="title-bar">
+    <div class="title-left">
+      <i class="fa-solid fa-file-word"></i>
+      <button class="title-btn" title="Save (Ctrl+S)" onclick="saveDoc()"><i class="fa-regular fa-floppy-disk"></i></button>
+      <button class="title-btn" title="Undo (Ctrl+Z)" onclick="format('undo')"><i class="fa-solid fa-rotate-left"></i></button>
+      <button class="title-btn" title="Redo (Ctrl+Y)" onclick="format('redo')"><i class="fa-solid fa-rotate-right"></i></button>
+    </div>
+    <div class="title-center" id="docTitle">
+      <i class="fa-regular fa-file-lines"></i>
+      <span contenteditable="true" spellcheck="false" id="docName" onblur="updateDocTitle()">Document1.docx</span>
+      <span style="font-size:10px; opacity:0.8; font-weight:normal;">- Saved to Browser</span>
+    </div>
+    <div class="title-right">
+      <button class="title-btn" title="Export as PDF" onclick="exportToPDF()"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+      <button class="title-btn" title="Print Document" onclick="window.print()"><i class="fa-solid fa-print"></i></button>
+      <button class="title-btn"><i class="fa-solid fa-window-minimize"></i></button>
+      <button class="title-btn"><i class="fa-regular fa-window-maximize"></i></button>
+      <button class="title-btn"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+  </header>
+
+  <!-- Ribbon Navigation -->
+  <nav class="ribbon-container">
+    <ul class="ribbon-tabs">
+      <li class="ribbon-tab" style="background:#185abd; color:white; font-weight:bold;" onclick="toggleFileMenu()">File</li>
+      <li class="ribbon-tab active" data-tab="home" onclick="switchTab('home')">Home</li>
+      <li class="ribbon-tab" data-tab="insert" onclick="switchTab('insert')">Insert</li>
+      <li class="ribbon-tab" data-tab="draw" onclick="switchTab('draw')">Draw</li>
+      <li class="ribbon-tab" data-tab="design" onclick="switchTab('design')">Design</li>
+      <li class="ribbon-tab" data-tab="layout" onclick="switchTab('layout')">Layout</li>
+      <li class="ribbon-tab" data-tab="references" onclick="switchTab('references')">References</li>
+      <li class="ribbon-tab" data-tab="review" onclick="switchTab('review')">Review</li>
+      <li class="ribbon-tab" data-tab="view" onclick="switchTab('view')">View</li>
+    </ul>
+
+    <!-- 1. HOME TAB TOOLBAR -->
+    <div class="ribbon-toolbar" id="toolbar-home">
+      <!-- Clipboard Group -->
+      <div class="ribbon-group" style="flex-direction: row; align-items: flex-start; gap: 4px;">
+        <button class="toolbar-btn" style="height: 60px;" onclick="format('paste')" onmousedown="event.preventDefault()">
+          <i class="fa-solid fa-paste" style="font-size: 22px; color: #d9a05b;"></i>
+          <span>Paste</span>
+        </button>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <button class="toolbar-btn small" title="Cut (Ctrl+X)" onclick="format('cut')" onmousedown="event.preventDefault()"><i class="fa-solid fa-scissors"></i></button>
+          <button class="toolbar-btn small" title="Copy (Ctrl+C)" onclick="format('copy')" onmousedown="event.preventDefault()"><i class="fa-regular fa-copy"></i></button>
+          <button class="toolbar-btn small" title="Format Painter" onclick="copyFormat()" onmousedown="event.preventDefault()"><i class="fa-solid fa-paintbrush" style="color:#d9a05b;"></i></button>
+        </div>
+        <div class="ribbon-group-label">Clipboard</div>
+      </div>
+
+      <!-- Font Group -->
+      <div class="ribbon-group">
+        <div class="ribbon-row">
+          <select class="toolbar-select" id="fontName" style="width: 125px;" onchange="format('fontName', this.value)" onmousedown="event.preventDefault()">
+            <option value="Calibri" selected>Calibri</option>
+            <option value="Arial">Arial</option>
+            <option value="Times New Roman">Times New Roman</option>
+            <option value="Courier New">Courier New</option>
+            <option value="Georgia">Georgia</option>
+            <option value="Verdana">Verdana</option>
+            <option value="Comic Sans MS">Comic Sans MS</option>
+            <option value="Impact">Impact</option>
+          </select>
+          <select class="toolbar-select" id="fontSize" style="width: 50px;" onchange="format('fontSize', this.value)" onmousedown="event.preventDefault()">
+            <option value="1">8</option>
+            <option value="2">10</option>
+            <option value="3" selected>11</option>
+            <option value="4">14</option>
+            <option value="5">18</option>
+            <option value="6">24</option>
+            <option value="7">36</option>
+          </select>
+          <button class="toolbar-btn small" title="Grow Font" onclick="changeFontSize(1)" onmousedown="event.preventDefault()"><strong style="font-size:13px;">A<i class="fa-solid fa-caret-up" style="font-size:8px;"></i></strong></button>
+          <button class="toolbar-btn small" title="Shrink Font" onclick="changeFontSize(-1)" onmousedown="event.preventDefault()"><span style="font-size:11px;">A<i class="fa-solid fa-caret-down" style="font-size:8px;"></i></span></button>
+          <button class="toolbar-btn small" title="Change Case" onclick="toggleCase()" onmousedown="event.preventDefault()"><i class="fa-solid fa-font"></i></button>
+          <button class="toolbar-btn small" title="Clear All Formatting" onclick="format('removeFormat')" onmousedown="event.preventDefault()"><i class="fa-solid fa-text-slash" style="color:#d13438;"></i></button>
+        </div>
+        <div class="ribbon-row">
+          <button class="toolbar-btn small" id="btn-bold" title="Bold (Ctrl+B)" onclick="format('bold')" onmousedown="event.preventDefault()"><i class="fa-solid fa-bold"></i></button>
+          <button class="toolbar-btn small" id="btn-italic" title="Italic (Ctrl+I)" onclick="format('italic')" onmousedown="event.preventDefault()"><i class="fa-solid fa-italic"></i></button>
+          <button class="toolbar-btn small" id="btn-underline" title="Underline (Ctrl+U)" onclick="format('underline')" onmousedown="event.preventDefault()"><i class="fa-solid fa-underline"></i></button>
+          <button class="toolbar-btn small" id="btn-strike" title="Strikethrough" onclick="format('strikeThrough')" onmousedown="event.preventDefault()"><i class="fa-solid fa-strikethrough"></i></button>
+          <button class="toolbar-btn small" id="btn-sub" title="Subscript" onclick="format('subscript')" onmousedown="event.preventDefault()"><i class="fa-solid fa-subscript"></i></button>
+          <button class="toolbar-btn small" id="btn-super" title="Superscript" onclick="format('superscript')" onmousedown="event.preventDefault()"><i class="fa-solid fa-superscript"></i></button>
+          <div style="width: 1px; height: 18px; background: var(--border); margin: 0 4px;"></div>
+          <input type="color" class="toolbar-color" id="hiliteColor" value="#ffff00" oninput="format('hiliteColor', this.value)" onmousedown="event.preventDefault()" title="Text Highlight Color">
+          <input type="color" class="toolbar-color" id="foreColor" value="#000000" oninput="format('foreColor', this.value)" onmousedown="event.preventDefault()" title="Font Color">
+        </div>
+        <div class="ribbon-group-label">Font</div>
+      </div>
+
+      <!-- Paragraph Group -->
+      <div class="ribbon-group">
+        <div class="ribbon-row">
+          <button class="toolbar-btn small" title="Bullets" onclick="format('insertUnorderedList')" onmousedown="event.preventDefault()"><i class="fa-solid fa-list-ul"></i></button>
+          <button class="toolbar-btn small" title="Numbering" onclick="format('insertOrderedList')" onmousedown="event.preventDefault()"><i class="fa-solid fa-list-ol"></i></button>
+          <button class="toolbar-btn small" title="Decrease Indent" onclick="format('outdent')" onmousedown="event.preventDefault()"><i class="fa-solid fa-outdent"></i></button>
+          <button class="toolbar-btn small" title="Increase Indent" onclick="format('indent')" onmousedown="event.preventDefault()"><i class="fa-solid fa-indent"></i></button>
+          <button class="toolbar-btn small" title="Line Spacing 1.0" onclick="setLineSpacing('1.0')" onmousedown="event.preventDefault()"><span style="font-size:10px; font-weight:bold;">1.0</span></button>
+          <button class="toolbar-btn small" title="Line Spacing 1.5" onclick="setLineSpacing('1.5')" onmousedown="event.preventDefault()"><span style="font-size:10px; font-weight:bold;">1.5</span></button>
+          <button class="toolbar-btn small" title="Line Spacing 2.0" onclick="setLineSpacing('2.0')" onmousedown="event.preventDefault()"><span style="font-size:10px; font-weight:bold;">2.0</span></button>
+        </div>
+        <div class="ribbon-row">
+          <button class="toolbar-btn small" id="btn-justifyLeft" title="Align Left (Ctrl+L)" onclick="format('justifyLeft')" onmousedown="event.preventDefault()"><i class="fa-solid fa-align-left"></i></button>
+          <button class="toolbar-btn small" id="btn-justifyCenter" title="Center (Ctrl+E)" onclick="format('justifyCenter')" onmousedown="event.preventDefault()"><i class="fa-solid fa-align-center"></i></button>
+          <button class="toolbar-btn small" id="btn-justifyRight" title="Align Right (Ctrl+R)" onclick="format('justifyRight')" onmousedown="event.preventDefault()"><i class="fa-solid fa-align-right"></i></button>
+          <button class="toolbar-btn small" id="btn-justifyFull" title="Justify (Ctrl+J)" onclick="format('justifyFull')" onmousedown="event.preventDefault()"><i class="fa-solid fa-align-justify"></i></button>
+          <div style="width: 1px; height: 18px; background: var(--border); margin: 0 4px;"></div>
+          <button class="toolbar-btn small" title="Blockquote" onclick="applyBlockquote()" onmousedown="event.preventDefault()"><i class="fa-solid fa-quote-left"></i></button>
+          <button class="toolbar-btn small" title="Sort" onclick="sortSelectedLines()" onmousedown="event.preventDefault()"><i class="fa-solid fa-arrow-down-a-z"></i></button>
+        </div>
+        <div class="ribbon-group-label">Paragraph</div>
+      </div>
+
+      <!-- Styles Group -->
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:5px;">
+          <button class="toolbar-btn" style="min-width: 58px; height: 56px; border:1px solid #e1dfdd;" onclick="applyHeading('p')" onmousedown="event.preventDefault()">
+            <span style="font-size: 13px; font-weight: 500;">Normal</span>
+          </button>
+          <button class="toolbar-btn" style="min-width: 64px; height: 56px; border:1px solid #e1dfdd;" onclick="applyHeading('h1')" onmousedown="event.preventDefault()">
+            <span style="font-size: 14px; font-weight: bold; color: #185abd;">Heading 1</span>
+          </button>
+          <button class="toolbar-btn" style="min-width: 64px; height: 56px; border:1px solid #e1dfdd;" onclick="applyHeading('h2')" onmousedown="event.preventDefault()">
+            <span style="font-size: 12px; font-weight: bold; color: #185abd;">Heading 2</span>
+          </button>
+          <button class="toolbar-btn" style="min-width: 58px; height: 56px; border:1px solid #e1dfdd;" onclick="applyHeading('h3')" onmousedown="event.preventDefault()">
+            <span style="font-size: 11px; font-weight: bold; color: #201f1e;">Title</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Styles</div>
+      </div>
+
+      <!-- Editing Group -->
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; flex-direction:column; gap:2px;">
+          <button class="toolbar-btn small" style="width:100%; justify-content:flex-start;" onclick="findText()" onmousedown="event.preventDefault()"><i class="fa-solid fa-magnifying-glass"></i> <span style="font-size:11px; margin-left:5px;">Find</span></button>
+          <button class="toolbar-btn small" style="width:100%; justify-content:flex-start;" onclick="replaceText()" onmousedown="event.preventDefault()"><i class="fa-solid fa-arrow-right-arrow-left"></i> <span style="font-size:11px; margin-left:5px;">Replace</span></button>
+          <button class="toolbar-btn small" style="width:100%; justify-content:flex-start;" onclick="selectAllText()" onmousedown="event.preventDefault()"><i class="fa-regular fa-object-ungroup"></i> <span style="font-size:11px; margin-left:5px;">Select All</span></button>
+        </div>
+        <div class="ribbon-group-label">Editing</div>
+      </div>
+    </div>
+
+    <!-- 2. INSERT TAB TOOLBAR -->
+    <div class="ribbon-toolbar" id="toolbar-insert" style="display: none;">
+      <!-- Pages -->
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:6px;">
+          <button class="toolbar-btn" onclick="insertBlankPage()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-file-circle-plus" style="font-size: 20px; color: #185abd;"></i>
+            <span>Blank Page</span>
+          </button>
+          <button class="toolbar-btn" onclick="insertPageBreak()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-scissors" style="font-size: 20px; color: #185abd;"></i>
+            <span>Page Break</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Pages</div>
+      </div>
+
+      <!-- Tables -->
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:4px;">
+          <button class="toolbar-btn" onclick="promptInsertTable()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-table" style="font-size: 20px; color: #185abd;"></i>
+            <span>Table</span>
+          </button>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <button class="toolbar-btn small" title="Insert Row Below" onclick="insertTableRow()" onmousedown="event.preventDefault()">+ Row</button>
+            <button class="toolbar-btn small" title="Insert Column Right" onclick="insertTableCol()" onmousedown="event.preventDefault()">+ Col</button>
+            <button class="toolbar-btn small" title="Delete Row" onclick="deleteTableRow()" onmousedown="event.preventDefault()">- Row</button>
+          </div>
+        </div>
+        <div class="ribbon-group-label">Tables</div>
+      </div>
+
+      <!-- Illustrations -->
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:6px;">
+          <button class="toolbar-btn" onclick="triggerImageUpload()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-image" style="font-size: 20px; color: #2b88d8;"></i>
+            <span>Pictures</span>
+          </button>
+          <input type="file" id="imageInput" accept="image/*" style="display: none;" onchange="handleImageInsert(event)">
+          <button class="toolbar-btn" onclick="insertShape('rectangle')" onmousedown="event.preventDefault()">
+            <i class="fa-regular fa-square" style="font-size: 20px; color: #d83b01;"></i>
+            <span>Rectangle</span>
+          </button>
+          <button class="toolbar-btn" onclick="insertShape('circle')" onmousedown="event.preventDefault()">
+            <i class="fa-regular fa-circle" style="font-size: 20px; color: #107c41;"></i>
+            <span>Circle</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Illustrations</div>
+      </div>
+
+      <!-- Links & Comments -->
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:6px;">
+          <button class="toolbar-btn" onclick="insertLink()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-link" style="font-size: 20px; color: #0078d4;"></i>
+            <span>Link</span>
+          </button>
+          <button class="toolbar-btn" onclick="insertBookmark()" onmousedown="event.preventDefault()">
+            <i class="fa-regular fa-bookmark" style="font-size: 20px; color: #ff8c00;"></i>
+            <span>Bookmark</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Links</div>
+      </div>
+
+      <!-- Header, Footer, Page Number -->
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:6px;">
+          <button class="toolbar-btn" onclick="insertHeader()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-heading" style="font-size: 18px;"></i>
+            <span>Header</span>
+          </button>
+          <button class="toolbar-btn" onclick="insertFooter()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-shoe-prints" style="font-size: 18px;"></i>
+            <span>Footer</span>
+          </button>
+          <button class="toolbar-btn" onclick="insertDateTime()" onmousedown="event.preventDefault()">
+            <i class="fa-regular fa-calendar-days" style="font-size: 18px; color: #107c41;"></i>
+            <span>Date & Time</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Header & Footer</div>
+      </div>
+
+      <!-- Symbols & Math -->
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:4px;">
+          <button class="toolbar-btn small" onclick="insertSymbol('©')" onmousedown="event.preventDefault()">©</button>
+          <button class="toolbar-btn small" onclick="insertSymbol('™')" onmousedown="event.preventDefault()">™</button>
+          <button class="toolbar-btn small" onclick="insertSymbol('€')" onmousedown="event.preventDefault()">€</button>
+          <button class="toolbar-btn small" onclick="insertSymbol('₹')" onmousedown="event.preventDefault()">₹</button>
+          <button class="toolbar-btn small" onclick="insertSymbol('π')" onmousedown="event.preventDefault()">π</button>
+          <button class="toolbar-btn small" onclick="insertSymbol('√')" onmousedown="event.preventDefault()">√</button>
+          <button class="toolbar-btn small" onclick="insertSymbol('∞')" onmousedown="event.preventDefault()">∞</button>
+          <button class="toolbar-btn small" onclick="insertSymbol('∑')" onmousedown="event.preventDefault()">∑</button>
+        </div>
+        <div class="ribbon-group-label">Symbols</div>
+      </div>
+    </div>
+
+    <!-- 3. DRAW TAB TOOLBAR -->
+    <div class="ribbon-toolbar" id="toolbar-draw" style="display: none;">
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:8px;">
+          <button class="toolbar-btn" onclick="toggleDrawingTool('pen')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-pen" style="font-size: 20px; color: #185abd;"></i>
+            <span>Black Pen</span>
+          </button>
+          <button class="toolbar-btn" onclick="toggleDrawingTool('red-pen')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-pen" style="font-size: 20px; color: #d13438;"></i>
+            <span>Red Pen</span>
+          </button>
+          <button class="toolbar-btn" onclick="toggleDrawingTool('highlighter')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-highlighter" style="font-size: 20px; color: #fce100;"></i>
+            <span>Highlighter</span>
+          </button>
+          <button class="toolbar-btn" onclick="toggleDrawingTool('eraser')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-eraser" style="font-size: 20px; color: #797775;"></i>
+            <span>Eraser</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Pens</div>
+      </div>
+    </div>
+
+    <!-- 4. DESIGN TAB TOOLBAR -->
+    <div class="ribbon-toolbar" id="toolbar-design" style="display: none;">
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:8px;">
+          <button class="toolbar-btn" onclick="applyWatermark('CONFIDENTIAL')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-stamp" style="font-size: 20px; color: #d13438;"></i>
+            <span>Confidential</span>
+          </button>
+          <button class="toolbar-btn" onclick="applyWatermark('DRAFT')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-stamp" style="font-size: 20px; color: #0078d4;"></i>
+            <span>Draft</span>
+          </button>
+          <button class="toolbar-btn" onclick="applyWatermark(null)" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-ban" style="font-size: 20px; color: #605e5c;"></i>
+            <span>No Watermark</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Watermark</div>
+      </div>
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:6px;">
+          <input type="color" class="toolbar-color" value="#ffffff" onchange="setPageColor(this.value)" onmousedown="event.preventDefault()" title="Page Color">
+          <span style="font-size:11px;">Page Background Color</span>
+        </div>
+        <div class="ribbon-group-label">Page Color</div>
+      </div>
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:6px;">
+          <button class="toolbar-btn" onclick="togglePageBorder()" onmousedown="event.preventDefault()">
+            <i class="fa-regular fa-square" style="font-size: 20px; color: #185abd;"></i>
+            <span>Box Border</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Page Borders</div>
+      </div>
+    </div>
+
+    <!-- 5. LAYOUT TAB TOOLBAR -->
+    <div class="ribbon-toolbar" id="toolbar-layout" style="display: none;">
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:8px;">
+          <button class="toolbar-btn" onclick="setMargins('2.54cm')" onmousedown="event.preventDefault()">
+            <i class="fa-regular fa-square" style="font-size: 18px;"></i>
+            <span>Normal (1 in)</span>
+          </button>
+          <button class="toolbar-btn" onclick="setMargins('1.27cm')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-arrows-to-dot" style="font-size: 18px;"></i>
+            <span>Narrow (0.5 in)</span>
+          </button>
+          <button class="toolbar-btn" onclick="setMargins('3.8cm')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-arrows-split-up-and-left" style="font-size: 18px;"></i>
+            <span>Wide</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Margins</div>
+      </div>
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:8px;">
+          <button class="toolbar-btn" onclick="setOrientation('portrait')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-file" style="font-size: 18px;"></i>
+            <span>Portrait</span>
+          </button>
+          <button class="toolbar-btn" onclick="setOrientation('landscape')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-file" style="font-size: 18px; transform: rotate(90deg);"></i>
+            <span>Landscape</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Orientation</div>
+      </div>
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:8px;">
+          <button class="toolbar-btn" onclick="setPaperSize('A4')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-sheet-plastic" style="font-size: 18px;"></i>
+            <span>A4</span>
+          </button>
+          <button class="toolbar-btn" onclick="setPaperSize('Letter')" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-sheet-plastic" style="font-size: 18px;"></i>
+            <span>US Letter</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Size</div>
+      </div>
+    </div>
+
+    <!-- 6. REFERENCES TAB TOOLBAR -->
+    <div class="ribbon-toolbar" id="toolbar-references" style="display: none;">
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:6px;">
+          <button class="toolbar-btn" onclick="generateTOC()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-list-check" style="font-size: 20px; color: #185abd;"></i>
+            <span>Table of Contents</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">TOC</div>
+      </div>
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:6px;">
+          <button class="toolbar-btn" onclick="insertFootnote()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-superscript" style="font-size: 20px; color: #107c41;"></i>
+            <span>Insert Footnote</span>
+          </button>
+          <button class="toolbar-btn" onclick="insertCitation()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-book-bookmark" style="font-size: 20px; color: #d83b01;"></i>
+            <span>Insert Citation</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Footnotes & Citations</div>
+      </div>
+    </div>
+
+    <!-- 7. REVIEW TAB TOOLBAR -->
+    <div class="ribbon-toolbar" id="toolbar-review" style="display: none;">
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:8px;">
+          <button class="toolbar-btn" onclick="checkSpelling()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-spell-check" style="font-size: 20px; color: #107c41;"></i>
+            <span>Spelling & Grammar</span>
+          </button>
+          <button class="toolbar-btn" onclick="showWordCountDialog()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-chart-simple" style="font-size: 20px; color: #185abd;"></i>
+            <span>Word Count</span>
+          </button>
+          <button class="toolbar-btn" onclick="readAloud()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-volume-high" style="font-size: 20px; color: #0078d4;"></i>
+            <span>Read Aloud</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Proofing</div>
+      </div>
+    </div>
+
+    <!-- 8. VIEW TAB TOOLBAR -->
+    <div class="ribbon-toolbar" id="toolbar-view" style="display: none;">
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:8px;">
+          <button class="toolbar-btn" onclick="setZoom(75)" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-magnifying-glass-minus" style="font-size: 18px;"></i>
+            <span>75%</span>
+          </button>
+          <button class="toolbar-btn" onclick="setZoom(100)" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-magnifying-glass" style="font-size: 18px;"></i>
+            <span>100%</span>
+          </button>
+          <button class="toolbar-btn" onclick="setZoom(125)" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-magnifying-glass-plus" style="font-size: 18px;"></i>
+            <span>125%</span>
+          </button>
+          <button class="toolbar-btn" onclick="setZoom(150)" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-magnifying-glass-plus" style="font-size: 18px;"></i>
+            <span>150%</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Zoom</div>
+      </div>
+      <div class="ribbon-group">
+        <div class="ribbon-row" style="margin-bottom:0; gap:8px;">
+          <button class="toolbar-btn" onclick="toggleRuler()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-ruler-horizontal" style="font-size: 18px;"></i>
+            <span>Ruler</span>
+          </button>
+          <button class="toolbar-btn" onclick="toggleDarkMode()" onmousedown="event.preventDefault()">
+            <i class="fa-solid fa-moon" style="font-size: 18px;"></i>
+            <span>Dark Page</span>
+          </button>
+        </div>
+        <div class="ribbon-group-label">Show & Mode</div>
+      </div>
+    </div>
+
+    <!-- BACKSTAGE / FILE DRAWER -->
+    <div id="file-drawer" class="file-drawer">
+      <div style="padding: 20px; font-size: 20px; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.2);">
+        <i class="fa-solid fa-file-word"></i> Word File
+      </div>
+      <div class="file-drawer-item" onclick="newDoc()"><i class="fa-solid fa-file-circle-plus"></i> New Blank Document</div>
+      <div class="file-drawer-item" onclick="openDocPrompt()"><i class="fa-solid fa-folder-open"></i> Open Document (.html, .txt)</div>
+      <input type="file" id="fileDocInput" accept=".html,.htm,.txt" style="display: none;" onchange="loadDocFile(event)">
+      <div class="file-drawer-item" onclick="saveDoc()"><i class="fa-solid fa-floppy-disk"></i> Save (.doc / Word file)</div>
+      <div class="file-drawer-item" onclick="exportToPDF()"><i class="fa-solid fa-file-pdf"></i> Export as PDF</div>
+      <div class="file-drawer-item" onclick="window.print()"><i class="fa-solid fa-print"></i> Print Layout</div>
+      <div style="margin-top: auto; padding: 16px; border-top: 1px solid rgba(255,255,255,0.2); font-size: 12px; opacity: 0.8;">
+        Word Online Clone v2.0<br>Client-Side & Auto-Saving
+      </div>
+      <div class="file-drawer-item" onclick="toggleFileMenu()"><i class="fa-solid fa-arrow-left"></i> Back to Document</div>
+    </div>
+  </nav>
+
+  <!-- Workspace Canvas -->
+  <main class="workspace" onclick="focusEditor()">
+    <!-- Top Horizontal Ruler -->
+    <div class="ruler-container" id="ruler">
+      <div class="ruler-marks"></div>
+    </div>
+
+    <!-- Pages Container -->
+    <div class="page-container" id="pageContainer">
+      <div class="page" id="editor" contenteditable="true" spellcheck="true">
+        <h1>Welcome to MS Word Online</h1>
+        <p>This is a complete, authentic Microsoft Word replica equipped with working Ribbons, typography controls, tables, styles, real-time statistics, and printing capabilities.</p>
+        <p>Click anywhere to begin typing naturally, press <strong>Enter</strong> to create paragraphs, or use the top ribbon to insert tables, change styles, and format your text.</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Status Bar (Bottom Word Bar) -->
+  <footer class="status-bar">
+    <div class="status-left">
+      <span id="pageCount">Page 1 of 1</span>
+      <span id="wordCount">Words: 42</span>
+      <span id="charCount">Characters: 290</span>
+      <span>English (United States)</span>
+    </div>
+    <div class="status-right">
+      <button class="status-btn" onclick="setZoom(100)">100%</button>
+      <input type="range" min="50" max="200" value="100" style="width: 100px; cursor: pointer;" oninput="setZoom(this.value)">
+      <i class="fa-solid fa-book-open" title="Reading View" onclick="setZoom(120)"></i>
+      <i class="fa-solid fa-file-lines" title="Print Layout" onclick="window.print()"></i>
+    </div>
+  </footer>
+
+  <script>
+    const editor = document.getElementById('editor');
+    let formatPainterFormat = null;
+    let isDrawing = false;
+    let currentDrawingTool = null;
+
+    window.onload = () => {
+      editor.focus();
+      document.execCommand('defaultParagraphSeparator', false, 'p');
+      updateStats();
+      autoLoadDraft();
+    };
+
+    function focusEditor() {
+      if (document.activeElement !== editor) {
+        editor.focus();
+      }
+    }
+
+    function switchTab(tabName) {
+      document.getElementById('file-drawer').style.display = 'none';
+
+      document.querySelectorAll('.ribbon-tab').forEach(t => t.classList.remove('active'));
+      const activeTab = document.querySelector(`.ribbon-tab[data-tab="${tabName}"]`);
+      if (activeTab) activeTab.classList.add('active');
+
+      document.querySelectorAll('.ribbon-toolbar').forEach(tb => tb.style.display = 'none');
+      const targetToolbar = document.getElementById(`toolbar-${tabName}`);
+      if (targetToolbar) targetToolbar.style.display = 'flex';
+    }
+
+    function toggleFileMenu() {
+      const drawer = document.getElementById('file-drawer');
+      drawer.style.display = (drawer.style.display === 'flex') ? 'none' : 'flex';
+    }
+
+    function updateDocTitle() {
+      const name = document.getElementById('docName').innerText.trim();
+      document.title = (name || 'Document') + ' - Word';
+    }
+
+    /* Core Formatting Engine */
+    function format(command, value = null) {
+      document.execCommand(command, false, value);
+      editor.focus();
+      updateToolbarState();
+      updateStats();
+      autoSaveDraft();
+    }
+
+    function changeFontSize(step) {
+      const sizeSelect = document.getElementById('fontSize');
+      let cur = parseInt(sizeSelect.value, 10) || 3;
+      cur = Math.max(1, Math.min(7, cur + step));
+      sizeSelect.value = cur;
+      format('fontSize', cur);
+    }
+
+    function toggleCase() {
+      const sel = window.getSelection();
+      if (!sel.rangeCount) return;
+      const text = sel.toString();
+      if (!text) return;
+      const newText = (text === text.toUpperCase()) ? text.toLowerCase() : text.toUpperCase();
+      document.execCommand('insertText', false, newText);
+    }
+
+    function applyHeading(tag) {
+      format('formatBlock', tag);
+    }
+
+    function applyBlockquote() {
+      format('formatBlock', 'blockquote');
+    }
+
+    function setLineSpacing(val) {
+      editor.style.lineHeight = val;
+    }
+
+    function copyFormat() {
+      const font = document.queryCommandValue('fontName') || 'Calibri';
+      const size = document.queryCommandValue('fontSize') || '3';
+      const color = document.queryCommandValue('foreColor') || '#000000';
+      const bold = document.queryCommandState('bold');
+      const italic = document.queryCommandState('italic');
+      formatPainterFormat = { font, size, color, bold, italic };
+      alert('Format copied! Select any text to apply.');
+    }
+
+    /* Editing Operations */
+    function findText() {
+      const str = prompt('Enter text to search:');
+      if (str && window.find) {
+        window.find(str);
+      }
+    }
+
+    function replaceText() {
+      const findVal = prompt('Text to find:');
+      if (!findVal) return;
+      const repVal = prompt(`Replace "${findVal}" with:`) || '';
+      editor.innerHTML = editor.innerHTML.replaceAll(findVal, repVal);
+      updateStats();
+    }
+
+    function selectAllText() {
+      format('selectAll');
+    }
+
+    function sortSelectedLines() {
+      const sel = window.getSelection();
+      if (!sel.toString()) return;
+      const lines = sel.toString().split('\n').filter(l => l.trim().length > 0);
+      lines.sort();
+      document.execCommand('insertText', false, lines.join('\n'));
+    }
+
+    /* Insert Tools */
+    function insertBlankPage() {
+      const page = document.createElement('div');
+      page.className = 'page';
+      page.contentEditable = 'true';
+      page.innerHTML = '<p><br></p>';
+      document.getElementById('pageContainer').appendChild(page);
+      page.focus();
+      updatePageCount();
+    }
+
+    function insertPageBreak() {
+      format('insertHTML', '<div style="page-break-after: always; height: 16px; border-bottom: 2px dashed #b1b1b1; margin: 20px 0;"></div><p><br></p>');
+    }
+
+    function promptInsertTable() {
+      const r = parseInt(prompt('Number of rows:', '3'), 10) || 3;
+      const c = parseInt(prompt('Number of columns:', '3'), 10) || 3;
+      let html = '<table>';
+      for (let i = 0; i < r; i++) {
+        html += '<tr>';
+        for (let j = 0; j < c; j++) {
+          html += '<td>Cell</td>';
+        }
+        html += '</tr>';
+      }
+      html += '</table><p><br></p>';
+      format('insertHTML', html);
+    }
+
+    function insertTableRow() {
+      const sel = window.getSelection();
+      const td = sel.anchorNode?.parentElement?.closest('td');
+      if (!td) return alert('Place cursor inside a table first');
+      const row = td.closest('tr');
+      const newRow = row.cloneNode(true);
+      newRow.querySelectorAll('td').forEach(cell => cell.innerText = 'Cell');
+      row.after(newRow);
+    }
+
+    function insertTableCol() {
+      const sel = window.getSelection();
+      const td = sel.anchorNode?.parentElement?.closest('td');
+      if (!td) return alert('Place cursor inside a table first');
+      const table = td.closest('table');
+      const colIdx = Array.from(td.parentElement.children).indexOf(td);
+      table.querySelectorAll('tr').forEach(tr => {
+        const newTd = document.createElement('td');
+        newTd.innerText = 'Cell';
+        tr.children[colIdx].after(newTd);
+      });
+    }
+
+    function deleteTableRow() {
+      const sel = window.getSelection();
+      const row = sel.anchorNode?.parentElement?.closest('tr');
+      if (row) row.remove();
+    }
+
+    function triggerImageUpload() {
+      document.getElementById('imageInput').click();
+    }
+
+    function handleImageInsert(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        format('insertHTML', `<img src="${event.target.result}" style="max-width:100%; border-radius:4px; margin:10px 0;" /><p><br></p>`);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function insertShape(type) {
+      const border = type === 'circle' ? 'border-radius: 50%;' : '';
+      const shape = `<div style="width: 140px; height: 90px; background: #cde6f7; border: 2px solid #185abd; ${border} margin: 10px 0; display: inline-block;"></div><p><br></p>`;
+      format('insertHTML', shape);
+    }
+
+    function insertLink() {
+      const url = prompt('Enter URL:');
+      if (url) format('createLink', url);
+    }
+
+    function insertBookmark() {
+      const name = prompt('Bookmark name:');
+      if (name) format('insertHTML', `<a name="${name}">[Bookmark: ${name}]</a>`);
+    }
+
+    function insertHeader() {
+      format('insertHTML', '<div style="border-bottom: 1px solid #aaa; padding-bottom: 6px; margin-bottom: 14px; font-size: 9pt; color: #666; text-align: right;">Document Header</div>');
+    }
+
+    function insertFooter() {
+      format('insertHTML', '<div style="border-top: 1px solid #aaa; padding-top: 6px; margin-top: 24px; font-size: 9pt; color: #666; text-align: center;">Page 1 | Confidential</div>');
+    }
+
+    function insertDateTime() {
+      format('insertText', new Date().toLocaleString());
+    }
+
+    function insertSymbol(sym) {
+      format('insertText', sym);
+    }
+
+    /* Design Tools */
+    function applyWatermark(txt) {
+      const page = document.querySelector('.page');
+      if (txt) {
+        page.classList.add('watermark');
+        page.setAttribute('data-watermark', txt);
+      } else {
+        page.classList.remove('watermark');
+      }
+    }
+
+    function setPageColor(color) {
+      document.querySelectorAll('.page').forEach(p => p.style.backgroundColor = color);
+    }
+
+    function togglePageBorder() {
+      const p = document.querySelector('.page');
+      p.style.border = (p.style.border && p.style.border !== 'none') ? 'none' : '2px solid #185abd';
+    }
+
+    /* Layout Tools */
+    function setMargins(val) {
+      document.querySelectorAll('.page').forEach(p => p.style.padding = val);
+    }
+
+    function setOrientation(mode) {
+      document.querySelectorAll('.page').forEach(p => {
+        if (mode === 'landscape') {
+          p.style.width = '29.7cm';
+          p.style.minHeight = '21cm';
+        } else {
+          p.style.width = '21cm';
+          p.style.minHeight = '29.7cm';
+        }
+      });
+      document.getElementById('ruler').style.width = (mode === 'landscape') ? '29.7cm' : '21cm';
+    }
+
+    function setPaperSize(size) {
+      if (size === 'Letter') {
+        document.querySelectorAll('.page').forEach(p => {
+          p.style.width = '21.59cm';
+          p.style.minHeight = '27.94cm';
+        });
+        document.getElementById('ruler').style.width = '21.59cm';
+      } else {
+        setOrientation('portrait');
+      }
+    }
+
+    /* References */
+    function generateTOC() {
+      const headings = editor.querySelectorAll('h1, h2, h3');
+      if (!headings.length) return alert('No headings (H1/H2) found to create Table of Contents.');
+      let html = '<div style="background:#f3f2f1; padding:16px; border:1px solid #d2d0ce; margin:16px 0;"><strong>Table of Contents</strong><ul style="margin-top:8px; padding-left:20px;">';
+      headings.forEach(h => {
+        html += `<li style="margin:4px 0;">${h.innerText}</li>`;
+      });
+      html += '</ul></div><p><br></p>';
+      format('insertHTML', html);
+    }
+
+    function insertFootnote() {
+      const note = prompt('Enter footnote note:');
+      if (note) {
+        format('insertHTML', `<sup>[1]</sup>`);
+        editor.innerHTML += `<div style="font-size:8.5pt; color:#666; margin-top:20px; border-top:1px solid #ccc; padding-top:4px;">[1] ${note}</div>`;
+      }
+    }
+
+    function insertCitation() {
+      const src = prompt('Citation Source (e.g., Smith, 2024):', 'Smith, 2024');
+      if (src) format('insertHTML', ` (${src})`);
+    }
+
+    /* Review Tools */
+    function checkSpelling() {
+      editor.spellcheck = true;
+      alert('Browser spellcheck enabled. Misspelled words are now underlined in red.');
+    }
+
+    function showWordCountDialog() {
+      const text = editor.innerText || '';
+      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+      const chars = text.length;
+      const charsNoSpace = text.replace(/\s/g, '').length;
+      const paras = editor.querySelectorAll('p').length || 1;
+      alert(`Word Count Statistics:\n\nWords: ${words}\nCharacters (with spaces): ${chars}\nCharacters (no spaces): ${charsNoSpace}\nParagraphs: ${paras}\nPages: ${document.querySelectorAll('.page').length}`);
+    }
+
+    function readAloud() {
+      if (!('speechSynthesis' in window)) return alert('Speech synthesis not supported in this browser.');
+      const text = window.getSelection().toString() || editor.innerText;
+      if (!text) return alert('Document is empty.');
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      window.speechSynthesis.speak(utter);
+    }
+
+    /* View Tools */
+    function setZoom(val) {
+      document.getElementById('pageContainer').style.transform = `scale(${val / 100})`;
+      document.getElementById('pageContainer').style.transformOrigin = 'top center';
+    }
+
+    function toggleRuler() {
+      const r = document.getElementById('ruler');
+      r.style.display = (r.style.display === 'none') ? 'flex' : 'none';
+    }
+
+    function toggleDarkMode() {
+      const p = document.querySelector('.page');
+      if (p.style.backgroundColor === 'rgb(30, 30, 30)') {
+        p.style.backgroundColor = '#ffffff';
+        p.style.color = '#000000';
+      } else {
+        p.style.backgroundColor = '#1e1e1e';
+        p.style.color = '#ffffff';
+      }
+    }
+
+    /* File Drawer Operations */
+    function newDoc() {
+      if (confirm('Create a new blank document?')) {
+        editor.innerHTML = '<p><br></p>';
+        editor.focus();
+        updateStats();
+        toggleFileMenu();
+        localStorage.removeItem('word_doc_draft');
+      }
+    }
+
+    function openDocPrompt() {
+      document.getElementById('fileDocInput').click();
+    }
+
+    function loadDocFile(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        editor.innerHTML = event.target.result;
+        updateStats();
+        toggleFileMenu();
+      };
+      reader.readAsText(file);
+    }
+
+    function saveDoc() {
+      const content = editor.innerHTML;
+      const html = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head><meta charset='utf-8'><title>${document.getElementById('docName').innerText}</title></head>
+        <body style="font-family: Calibri, sans-serif;">${content}</body></html>
+      `;
+      const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = document.getElementById('docName').innerText || 'Document.doc';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function exportToPDF() {
+      window.print();
+    }
+
+    /* Stats & Live Toolbar Updates */
+    function updateStats() {
+      const text = editor.innerText || '';
+      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+      const chars = text.length;
+      document.getElementById('wordCount').innerText = `Words: ${words}`;
+      document.getElementById('charCount').innerText = `Characters: ${chars}`;
+      updatePageCount();
+    }
+
+    function updatePageCount() {
+      const pages = document.querySelectorAll('.page').length;
+      document.getElementById('pageCount').innerText = `Page 1 of ${pages}`;
+    }
+
+    function updateToolbarState() {
+      const commands = ['bold', 'italic', 'underline', 'strikeThrough', 'subscript', 'superscript', 'justifyLeft', 'justifyCenter', 'justifyRight', 'justifyFull'];
+      commands.forEach(cmd => {
+        const btn = document.getElementById('btn-' + cmd) || document.getElementById('btn-' + cmd.replace('Through',''));
+        if (btn) {
+          if (document.queryCommandState(cmd)) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        }
+      });
+
+      const font = document.queryCommandValue('fontName');
+      if (font) {
+        const clean = font.replace(/['"]/g, '').toLowerCase();
+        const fontSelect = document.getElementById('fontName');
+        for(let i=0; i<fontSelect.options.length; i++) {
+          if (clean.includes(fontSelect.options[i].value.toLowerCase())) {
+            fontSelect.selectedIndex = i;
+            break;
+          }
+        }
+      }
+
+      const size = document.queryCommandValue('fontSize');
+      if (size) {
+        document.getElementById('fontSize').value = size;
+      }
+    }
+
+    /* Auto-Save & Recovery */
+    function autoSaveDraft() {
+      try {
+        localStorage.setItem('word_doc_draft', editor.innerHTML);
+      } catch (e) {}
+    }
+
+    function autoLoadDraft() {
+      try {
+        const saved = localStorage.getItem('word_doc_draft');
+        if (saved && saved.trim()) {
+          editor.innerHTML = saved;
+          updateStats();
+        }
+      } catch (e) {}
+    }
+
+    editor.addEventListener('keyup', () => { updateToolbarState(); updateStats(); autoSaveDraft(); });
+    editor.addEventListener('mouseup', updateToolbarState);
+    editor.addEventListener('input', () => { updateToolbarState(); updateStats(); autoSaveDraft(); });
+
+    // Format painter apply listener
+    editor.addEventListener('mouseup', () => {
+      if (formatPainterFormat) {
+        format('fontName', formatPainterFormat.font);
+        format('fontSize', formatPainterFormat.size);
+        if (formatPainterFormat.bold) format('bold');
+        if (formatPainterFormat.italic) format('italic');
+        formatPainterFormat = null;
+      }
+    });
+  </script>
+</body>
+</html>
