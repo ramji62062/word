@@ -1910,7 +1910,7 @@
 
     function clearOriginalSourceView() {
       document.getElementById('sourceDocumentView')?.remove();
-      document.querySelectorAll('.pdf-edit-page').forEach(p => p.remove());
+      document.querySelectorAll('.pdf-edit-page, .docx-edit-page').forEach(p => p.remove());
       const pages = document.querySelectorAll('#pageContainer .page');
       pages.forEach((p, idx) => {
         if (idx > 0) p.remove();
@@ -1926,6 +1926,7 @@
       editor.style.background = '';
       editor.style.boxShadow = '';
       originalSourceKind = null;
+      if (typeof clearDocxState === 'function') clearDocxState();
     }
 
     async function openPdfOriginal(file) {
@@ -2114,9 +2115,446 @@
       toggleFileMenu(false);
     }
 
+    /* OOXML Preservation & Minimal Patch Engine */
+    let originalDocxZip = null;
+    let originalDocxXmlDoc = null;
+    let originalDocxRels = {};
+    let originalDocxImages = {};
+    let originalDocxStats = null;
+    let docxWtNodes = [];
+
+    function clearDocxState() {
+      originalDocxZip = null;
+      originalDocxXmlDoc = null;
+      originalDocxRels = {};
+      originalDocxImages = {};
+      originalDocxStats = null;
+      docxWtNodes = [];
+    }
+
+    function twipsToPx(twips) {
+      if (!twips) return 0;
+      const num = parseFloat(twips);
+      return Math.round((num / 1440) * 96);
+    }
+
+    function halfPtToPx(halfPt) {
+      if (!halfPt) return 16;
+      const pt = parseFloat(halfPt) / 2;
+      return Math.round((pt * 96) / 72);
+    }
+
+    function emuToPx(emu) {
+      if (!emu) return 100;
+      return Math.round(parseFloat(emu) / 9525);
+    }
+
     async function openDocxOriginal(file) {
-      const result = await mammoth.convertToHtml({ arrayBuffer: await file.arrayBuffer() });
-      setImportedDocument(result.value, file.name);
+      if (!window.JSZip) throw new Error('DOCX reader could not load JSZip. Check your internet connection.');
+      clearOriginalSourceView();
+      clearDocxState();
+
+      originalSourceFile = file;
+      originalSourceKind = 'docx';
+
+      const arrayBuffer = await file.arrayBuffer();
+      originalDocxZip = await JSZip.loadAsync(arrayBuffer);
+
+      // 1. Parse Relationships (word/_rels/document.xml.rels)
+      const relsFile = originalDocxZip.file('word/_rels/document.xml.rels');
+      if (relsFile) {
+        try {
+          const relsXml = await relsFile.async('text');
+          const relsDoc = new DOMParser().parseFromString(relsXml, 'application/xml');
+          const relNodes = relsDoc.getElementsByTagNameNS('*', 'Relationship');
+          for (let i = 0; i < relNodes.length; i++) {
+            const id = relNodes[i].getAttribute('Id');
+            const target = relNodes[i].getAttribute('Target');
+            const type = relNodes[i].getAttribute('Type') || '';
+            originalDocxRels[id] = target;
+
+            if (type.includes('image') || /\.(png|jpe?g|gif|webp|svg|bmp|emf|wmf)$/i.test(target)) {
+              let zipPath = target;
+              if (!zipPath.startsWith('word/')) {
+                zipPath = target.startsWith('/') ? target.slice(1) : ('word/' + target.replace(/^\.\.\//, ''));
+              }
+              const imgZipFile = originalDocxZip.file(zipPath);
+              if (imgZipFile) {
+                const base64 = await imgZipFile.async('base64');
+                const ext = zipPath.split('.').pop().toLowerCase();
+                const mime = ext === 'png' ? 'image/png' : (ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : (ext === 'svg' ? 'image/svg+xml' : (ext === 'gif' ? 'image/gif' : 'image/png')));
+                originalDocxImages[id] = `data:${mime};base64,${base64}`;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Could not parse docx relationships:', e);
+        }
+      }
+
+      // 2. Parse Main Document XML (word/document.xml)
+      const docXmlFile = originalDocxZip.file('word/document.xml');
+      if (!docXmlFile) throw new Error('Invalid DOCX format: word/document.xml not found.');
+      const docXmlText = await docXmlFile.async('text');
+      originalDocxXmlDoc = new DOMParser().parseFromString(docXmlText, 'application/xml');
+
+      // 3. Record Initial Fidelity Metrics
+      originalDocxStats = {
+        pCount: originalDocxXmlDoc.getElementsByTagNameNS('*', 'p').length,
+        tblCount: originalDocxXmlDoc.getElementsByTagNameNS('*', 'tbl').length,
+        rCount: originalDocxXmlDoc.getElementsByTagNameNS('*', 'r').length,
+        wtCount: originalDocxXmlDoc.getElementsByTagNameNS('*', 't').length
+      };
+
+      // 4. Extract Section / Page Dimensions & Margins
+      const sectPr = originalDocxXmlDoc.getElementsByTagNameNS('*', 'sectPr')[0];
+      let pageWidthPx = 816; // Standard Letter width 8.5in at 96 DPI
+      let pageHeightPx = 1056; // Standard Letter height 11in at 96 DPI
+      let padTop = 96, padRight = 96, padBottom = 96, padLeft = 96;
+
+      if (sectPr) {
+        const pgSz = sectPr.getElementsByTagNameNS('*', 'pgSz')[0];
+        if (pgSz) {
+          const w = pgSz.getAttribute('w') || pgSz.getAttributeNS('*', 'w');
+          const h = pgSz.getAttribute('h') || pgSz.getAttributeNS('*', 'h');
+          if (w) pageWidthPx = twipsToPx(w);
+          if (h) pageHeightPx = twipsToPx(h);
+        }
+        const pgMar = sectPr.getElementsByTagNameNS('*', 'pgMar')[0];
+        if (pgMar) {
+          const top = pgMar.getAttribute('top') || pgMar.getAttributeNS('*', 'top');
+          const right = pgMar.getAttribute('right') || pgMar.getAttributeNS('*', 'right');
+          const bottom = pgMar.getAttribute('bottom') || pgMar.getAttributeNS('*', 'bottom');
+          const left = pgMar.getAttribute('left') || pgMar.getAttributeNS('*', 'left');
+          if (top) padTop = twipsToPx(top);
+          if (right) padRight = twipsToPx(right);
+          if (bottom) padBottom = twipsToPx(bottom);
+          if (left) padLeft = twipsToPx(left);
+        }
+      }
+
+      // 5. Build Page View & Render OOXML Elements
+      const pageContainer = document.getElementById('pageContainer');
+      pageContainer.innerHTML = '';
+      editor.style.display = 'none';
+
+      let currentPageDiv = createDocxPageElement(pageWidthPx, pageHeightPx, padTop, padRight, padBottom, padLeft);
+      pageContainer.appendChild(currentPageDiv);
+
+      const body = originalDocxXmlDoc.getElementsByTagNameNS('*', 'body')[0];
+      if (!body) throw new Error('Invalid DOCX format: body not found.');
+
+      // Render all body child nodes (paragraphs, tables, drawings)
+      for (let i = 0; i < body.childNodes.length; i++) {
+        const node = body.childNodes[i];
+        if (node.nodeType !== Node.ELEMENT_NODE) continue;
+
+        const tagName = node.localName || node.nodeName.split(':').pop();
+
+        if (tagName === 'p') {
+          // Check for manual page breaks inside paragraph
+          const hasPageBreak = node.getElementsByTagNameNS('*', 'br');
+          let shouldBreak = false;
+          for (let b = 0; b < hasPageBreak.length; b++) {
+            const brType = hasPageBreak[b].getAttribute('type') || hasPageBreak[b].getAttributeNS('*', 'type');
+            if (brType === 'page') { shouldBreak = true; break; }
+          }
+          if (shouldBreak && currentPageDiv.childNodes.length > 0) {
+            currentPageDiv = createDocxPageElement(pageWidthPx, pageHeightPx, padTop, padRight, padBottom, padLeft);
+            pageContainer.appendChild(currentPageDiv);
+          }
+
+          const pEl = renderDocxParagraph(node);
+          currentPageDiv.appendChild(pEl);
+        } else if (tagName === 'tbl') {
+          const tblEl = renderDocxTable(node);
+          currentPageDiv.appendChild(tblEl);
+        }
+      }
+
+      document.getElementById('docName').innerText = file.name;
+      updateDocTitle();
+      updateStats();
+      updatePageCount();
+      toggleFileMenu(false);
+    }
+
+    function createDocxPageElement(widthPx, heightPx, padTop, padRight, padBottom, padLeft) {
+      const pageDiv = document.createElement('div');
+      pageDiv.className = 'page docx-edit-page';
+      pageDiv.style.cssText = `
+        width: ${widthPx}px;
+        min-height: ${heightPx}px;
+        box-sizing: border-box;
+        padding: ${padTop}px ${padRight}px ${padBottom}px ${padLeft}px;
+        background: #ffffff;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        margin: 20px auto;
+        position: relative;
+        font-family: Calibri, 'Segoe UI', Arial, sans-serif;
+        color: #000000;
+        font-size: 11pt;
+        line-height: 1.15;
+      `;
+      return pageDiv;
+    }
+
+    function renderDocxParagraph(pNode) {
+      const pEl = document.createElement('div');
+      pEl.className = 'docx-paragraph';
+      pEl.style.margin = '0 0 6pt 0';
+      pEl.style.minHeight = '1.2em';
+
+      // Parse pPr (paragraph properties)
+      const pPr = pNode.getElementsByTagNameNS('*', 'pPr')[0];
+      if (pPr) {
+        const jc = pPr.getElementsByTagNameNS('*', 'jc')[0];
+        if (jc) {
+          const val = jc.getAttribute('val') || jc.getAttributeNS('*', 'val');
+          if (val === 'center') pEl.style.textAlign = 'center';
+          else if (val === 'right') pEl.style.textAlign = 'right';
+          else if (val === 'both' || val === 'justify') pEl.style.textAlign = 'justify';
+          else if (val === 'left') pEl.style.textAlign = 'left';
+        }
+        const ind = pPr.getElementsByTagNameNS('*', 'ind')[0];
+        if (ind) {
+          const left = ind.getAttribute('left') || ind.getAttributeNS('*', 'left');
+          const firstLine = ind.getAttribute('firstLine') || ind.getAttributeNS('*', 'firstLine');
+          if (left) pEl.style.marginLeft = `${twipsToPx(left)}px`;
+          if (firstLine) pEl.style.textIndent = `${twipsToPx(firstLine)}px`;
+        }
+        const spacing = pPr.getElementsByTagNameNS('*', 'spacing')[0];
+        if (spacing) {
+          const before = spacing.getAttribute('before') || spacing.getAttributeNS('*', 'before');
+          const after = spacing.getAttribute('after') || spacing.getAttributeNS('*', 'after');
+          if (before) pEl.style.marginTop = `${twipsToPx(before)}px`;
+          if (after) pEl.style.marginBottom = `${twipsToPx(after)}px`;
+        }
+      }
+
+      // Parse child runs, drawings, breaks, tabs
+      for (let j = 0; j < pNode.childNodes.length; j++) {
+        const child = pNode.childNodes[j];
+        if (child.nodeType !== Node.ELEMENT_NODE) continue;
+        const tag = child.localName || child.nodeName.split(':').pop();
+
+        if (tag === 'r') {
+          const rEl = renderDocxRun(child);
+          pEl.appendChild(rEl);
+        } else if (tag === 'hyperlink') {
+          const linkRuns = child.getElementsByTagNameNS('*', 'r');
+          for (let lr = 0; lr < linkRuns.length; lr++) {
+            const rEl = renderDocxRun(linkRuns[lr]);
+            rEl.style.color = '#0563c1';
+            rEl.style.textDecoration = 'underline';
+            pEl.appendChild(rEl);
+          }
+        } else if (tag === 'drawing' || tag === 'pict') {
+          const imgEl = renderDocxDrawing(child);
+          if (imgEl) pEl.appendChild(imgEl);
+        }
+      }
+
+      if (!pEl.childNodes.length) {
+        pEl.innerHTML = '<br>';
+      }
+
+      return pEl;
+    }
+
+    function renderDocxRun(rNode) {
+      const spanEl = document.createElement('span');
+      spanEl.className = 'docx-run';
+
+      // Parse rPr (run properties)
+      const rPr = rNode.getElementsByTagNameNS('*', 'rPr')[0];
+      let fontFamily = '';
+      let fontSizePx = null;
+      let isBold = false;
+      let isItalic = false;
+      let isUnderline = false;
+      let isStrike = false;
+      let fontColor = '';
+      let highlight = '';
+      let vertAlign = '';
+
+      if (rPr) {
+        if (rPr.getElementsByTagNameNS('*', 'b').length) isBold = true;
+        if (rPr.getElementsByTagNameNS('*', 'i').length) isItalic = true;
+        if (rPr.getElementsByTagNameNS('*', 'u').length) isUnderline = true;
+        if (rPr.getElementsByTagNameNS('*', 'strike').length) isStrike = true;
+
+        const rFonts = rPr.getElementsByTagNameNS('*', 'rFonts')[0];
+        if (rFonts) {
+          fontFamily = rFonts.getAttribute('ascii') || rFonts.getAttributeNS('*', 'ascii') ||
+                       rFonts.getAttribute('hAnsi') || rFonts.getAttributeNS('*', 'hAnsi') || '';
+        }
+
+        const sz = rPr.getElementsByTagNameNS('*', 'sz')[0];
+        if (sz) {
+          const szVal = sz.getAttribute('val') || sz.getAttributeNS('*', 'val');
+          if (szVal) fontSizePx = halfPtToPx(szVal);
+        }
+
+        const color = rPr.getElementsByTagNameNS('*', 'color')[0];
+        if (color) {
+          const cVal = color.getAttribute('val') || color.getAttributeNS('*', 'val');
+          if (cVal && cVal !== 'auto') fontColor = '#' + cVal;
+        }
+
+        const hl = rPr.getElementsByTagNameNS('*', 'highlight')[0];
+        if (hl) {
+          const hVal = hl.getAttribute('val') || hl.getAttributeNS('*', 'val');
+          if (hVal) highlight = hVal;
+        }
+
+        const va = rPr.getElementsByTagNameNS('*', 'vertAlign')[0];
+        if (va) {
+          const vVal = va.getAttribute('val') || va.getAttributeNS('*', 'val');
+          if (vVal) vertAlign = vVal;
+        }
+      }
+
+      if (fontFamily) spanEl.style.fontFamily = `"${fontFamily}", Calibri, sans-serif`;
+      if (fontSizePx) spanEl.style.fontSize = `${fontSizePx}px`;
+      if (isBold) spanEl.style.fontWeight = 'bold';
+      if (isItalic) spanEl.style.fontStyle = 'italic';
+      if (isUnderline) spanEl.style.textDecoration = 'underline';
+      if (isStrike) spanEl.style.textDecoration = isUnderline ? 'underline line-through' : 'line-through';
+      if (fontColor) spanEl.style.color = fontColor;
+      if (highlight) spanEl.style.backgroundColor = highlight;
+      if (vertAlign === 'superscript') spanEl.style.verticalAlign = 'super';
+      else if (vertAlign === 'subscript') spanEl.style.verticalAlign = 'sub';
+
+      // Parse child items inside run (<w:t>, <w:tab>, <w:br>, <w:drawing>)
+      for (let k = 0; k < rNode.childNodes.length; k++) {
+        const item = rNode.childNodes[k];
+        if (item.nodeType !== Node.ELEMENT_NODE) continue;
+        const itemTag = item.localName || item.nodeName.split(':').pop();
+
+        if (itemTag === 't') {
+          const wtIdx = docxWtNodes.length;
+          docxWtNodes.push(item);
+
+          const tSpan = document.createElement('span');
+          tSpan.className = 'docx-wt-run';
+          tSpan.dataset.wtIdx = wtIdx;
+          tSpan.contentEditable = 'true';
+          tSpan.spellcheck = true;
+          tSpan.style.whiteSpace = 'pre-wrap';
+          tSpan.style.outline = 'none';
+          tSpan.textContent = item.textContent;
+
+          // Real-time two-way synchronization into OOXML AST
+          tSpan.addEventListener('input', () => {
+            const idx = parseInt(tSpan.dataset.wtIdx, 10);
+            if (docxWtNodes[idx]) {
+              docxWtNodes[idx].textContent = tSpan.textContent;
+            }
+            updateStats();
+            autoSaveDraft();
+          });
+
+          spanEl.appendChild(tSpan);
+        } else if (itemTag === 'tab') {
+          const tabSpan = document.createElement('span');
+          tabSpan.style.display = 'inline-block';
+          tabSpan.style.width = '2em';
+          spanEl.appendChild(tabSpan);
+        } else if (itemTag === 'br') {
+          spanEl.appendChild(document.createElement('br'));
+        } else if (itemTag === 'drawing' || itemTag === 'pict') {
+          const imgEl = renderDocxDrawing(item);
+          if (imgEl) spanEl.appendChild(imgEl);
+        }
+      }
+
+      return spanEl;
+    }
+
+    function renderDocxDrawing(drawingNode) {
+      // Find blip or imagedata
+      const blips = drawingNode.getElementsByTagNameNS('*', 'blip');
+      let embedId = null;
+      if (blips.length) {
+        embedId = blips[0].getAttribute('r:embed') || blips[0].getAttribute('embed') || blips[0].getAttributeNS('*', 'embed');
+      }
+      if (!embedId) {
+        const imagedatas = drawingNode.getElementsByTagNameNS('*', 'imagedata');
+        if (imagedatas.length) {
+          embedId = imagedatas[0].getAttribute('r:id') || imagedatas[0].getAttribute('id') || imagedatas[0].getAttributeNS('*', 'id');
+        }
+      }
+
+      if (embedId && originalDocxImages[embedId]) {
+        const img = document.createElement('img');
+        img.src = originalDocxImages[embedId];
+        img.style.maxWidth = '100%';
+        img.style.display = 'inline-block';
+        img.style.verticalAlign = 'middle';
+
+        // Check extents
+        const extents = drawingNode.getElementsByTagNameNS('*', 'extent');
+        if (extents.length) {
+          const cx = extents[0].getAttribute('cx');
+          const cy = extents[0].getAttribute('cy');
+          if (cx) img.style.width = `${emuToPx(cx)}px`;
+          if (cy) img.style.height = `${emuToPx(cy)}px`;
+        }
+        return img;
+      }
+      return null;
+    }
+
+    function renderDocxTable(tblNode) {
+      const table = document.createElement('table');
+      table.className = 'docx-table';
+      table.style.cssText = 'border-collapse:collapse; width:100%; margin:10px 0; border:1px solid #d2d0ce;';
+
+      const rows = tblNode.getElementsByTagNameNS('*', 'tr');
+      for (let r = 0; r < rows.length; r++) {
+        const trNode = rows[r];
+        const trEl = document.createElement('tr');
+
+        const cells = trNode.getElementsByTagNameNS('*', 'tc');
+        for (let c = 0; c < cells.length; c++) {
+          const tcNode = cells[c];
+          const tdEl = document.createElement('td');
+          tdEl.style.cssText = 'border:1px solid #d2d0ce; padding:6px 10px; vertical-align:top;';
+
+          // Cell properties (tcPr)
+          const tcPr = tcNode.getElementsByTagNameNS('*', 'tcPr')[0];
+          if (tcPr) {
+            const tcW = tcPr.getElementsByTagNameNS('*', 'tcW')[0];
+            if (tcW) {
+              const w = tcW.getAttribute('w') || tcW.getAttributeNS('*', 'w');
+              if (w) tdEl.style.width = `${twipsToPx(w)}px`;
+            }
+            const shd = tcPr.getElementsByTagNameNS('*', 'shd')[0];
+            if (shd) {
+              const fill = shd.getAttribute('fill') || shd.getAttributeNS('*', 'fill');
+              if (fill && fill !== 'auto') tdEl.style.backgroundColor = '#' + fill;
+            }
+            const gridSpan = tcPr.getElementsByTagNameNS('*', 'gridSpan')[0];
+            if (gridSpan) {
+              const spanVal = gridSpan.getAttribute('val') || gridSpan.getAttributeNS('*', 'val');
+              if (spanVal) tdEl.colSpan = parseInt(spanVal, 10);
+            }
+          }
+
+          // Render paragraphs inside cell
+          const cellPs = tcNode.getElementsByTagNameNS('*', 'p');
+          for (let cp = 0; cp < cellPs.length; cp++) {
+            tdEl.appendChild(renderDocxParagraph(cellPs[cp]));
+          }
+
+          trEl.appendChild(tdEl);
+        }
+
+        table.appendChild(trEl);
+      }
+
+      return table;
     }
 
     function downloadOriginalSource() {
@@ -2216,26 +2654,157 @@
       }
     }
 
-    function saveDoc() {
+    /* Lossless DOCX Save & Export Engine */
+    async function saveDoc() {
+      try {
+        // Sync any pending edited text spans from DOM into OOXML AST
+        document.querySelectorAll('.docx-wt-run').forEach(span => {
+          const idx = parseInt(span.dataset.wtIdx, 10);
+          if (docxWtNodes[idx]) {
+            docxWtNodes[idx].textContent = span.textContent;
+          }
+        });
+
+        let docName = document.getElementById('docName').innerText.trim() || 'Document1.docx';
+        if (!docName.toLowerCase().endsWith('.docx')) {
+          docName = docName.replace(/\.[^.]+$/, '') + '.docx';
+        }
+
+        let blob = null;
+
+        // Path A: Original DOCX Preserved Patch Save
+        if (originalDocxZip && originalDocxXmlDoc) {
+          // Document Fidelity Test
+          const currentPCount = originalDocxXmlDoc.getElementsByTagNameNS('*', 'p').length;
+          const currentTblCount = originalDocxXmlDoc.getElementsByTagNameNS('*', 'tbl').length;
+          if (originalDocxStats && Math.abs(currentPCount - originalDocxStats.pCount) > 10) {
+            console.warn('Saving this document may change its formatting.');
+          }
+
+          // Serialize modified XML AST directly back into word/document.xml
+          const serializer = new XMLSerializer();
+          const serializedDocXml = serializer.serializeToString(originalDocxXmlDoc);
+          originalDocxZip.file('word/document.xml', serializedDocXml);
+
+          // Generate genuine OOXML .docx binary
+          blob = await originalDocxZip.generateAsync({
+            type: 'blob',
+            mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            compression: 'DEFLATE',
+            compressionOptions: { level: 6 }
+          });
+        } else {
+          // Path B: Standard Valid OOXML .docx Generation for New Documents
+          blob = await createStandardDocxBlob();
+        }
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = docName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error('Save failed:', err);
+        alert('Could not save DOCX: ' + (err.message || err));
+      }
+    }
+
+    async function createStandardDocxBlob() {
+      const zip = new JSZip();
+
+      // [Content_Types].xml
+      zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+</Types>`);
+
+      // _rels/.rels
+      zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`);
+
+      // word/_rels/document.xml.rels
+      zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`);
+
+      // word/styles.xml
+      zip.file('word/styles.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:docDefaults>
+    <w:rPrDefault>
+      <w:rPr>
+        <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>
+        <w:sz w:val="22"/>
+        <w:szCs w:val="22"/>
+      </w:rPr>
+    </w:rPrDefault>
+  </w:docDefaults>
+</w:styles>`);
+
+      // word/document.xml generated from editor paragraphs
       const pages = document.querySelectorAll('#pageContainer .page');
-      let content = '';
+      let bodyXml = '';
       pages.forEach(p => {
-        content += `<div style="page-break-after:always; margin-bottom:30px;">${p.innerHTML}</div>`;
+        const paras = p.querySelectorAll('p, div, h1, h2, h3, li');
+        if (paras.length === 0) {
+          const txt = (p.innerText || '').trim();
+          if (txt) {
+            bodyXml += `<w:p><w:r><w:t xml:space="preserve">${escapeXml(txt)}</w:t></w:r></w:p>`;
+          }
+        } else {
+          paras.forEach(el => {
+            const txt = (el.innerText || '').trim();
+            if (txt) {
+              let rPrXml = '';
+              if (el.tagName === 'H1') rPrXml = '<w:rPr><w:b/><w:sz w:val="36"/></w:rPr>';
+              else if (el.tagName === 'H2') rPrXml = '<w:rPr><w:b/><w:sz w:val="28"/></w:rPr>';
+              else if (el.tagName === 'H3') rPrXml = '<w:rPr><w:b/><w:sz w:val="24"/></w:rPr>';
+              bodyXml += `<w:p><w:r>${rPrXml}<w:t xml:space="preserve">${escapeXml(txt)}</w:t></w:r></w:p>`;
+            }
+          });
+        }
       });
-      const html = `
-        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-        <head><meta charset='utf-8'><title>${document.getElementById('docName').innerText}</title></head>
-        <body style="font-family: Calibri, sans-serif;">${content}</body></html>
-      `;
-      const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = document.getElementById('docName').innerText || 'Document.doc';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+
+      if (!bodyXml) {
+        bodyXml = '<w:p><w:r><w:t xml:space="preserve"></w:t></w:r></w:p>';
+      }
+
+      const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <w:body>
+    ${bodyXml}
+    <w:sectPr>
+      <w:pgSz w:w="12240" w:h="15840"/>
+      <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`;
+
+      zip.file('word/document.xml', docXml);
+
+      return await zip.generateAsync({
+        type: 'blob',
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        compression: 'DEFLATE'
+      });
+    }
+
+    function escapeXml(str) {
+      return (str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
     }
 
     function exportToPDF() {
@@ -2361,6 +2930,13 @@
         if (formatPainterFormat.bold) format('bold');
         if (formatPainterFormat.italic) format('italic');
         formatPainterFormat = null;
+      }
+    });
+
+    window.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        saveDoc();
       }
     });
 
