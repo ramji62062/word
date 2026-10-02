@@ -7,9 +7,10 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <link href="platform.css" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://unpkg.com/pdf-lib@1.17.9/dist/pdf-lib.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-
+  <script src="pdf-engine.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
@@ -1912,13 +1913,19 @@
       editor.focus();
     }
 
+    let wpsPdfEngine = null;
+
     function clearOriginalSourceView() {
       document.getElementById('sourceDocumentView')?.remove();
-      document.querySelectorAll('.pdf-edit-page, .docx-edit-page').forEach(p => p.remove());
+      document.querySelectorAll('.pdf-edit-page, .docx-edit-page, .wps-pdf-page').forEach(p => p.remove());
       const pages = document.querySelectorAll('#pageContainer .page');
       pages.forEach((p, idx) => {
         if (idx > 0) p.remove();
       });
+      if (wpsPdfEngine) {
+        wpsPdfEngine.destroy();
+        wpsPdfEngine = null;
+      }
       editor.style.display = '';
       editor.style.padding = '';
       editor.style.width = '';
@@ -1933,338 +1940,23 @@
       if (typeof clearDocxState === 'function') clearDocxState();
     }
 
-    /* PDF Pixel Analysis, Font Resolution & Inline Editing Engine */
-    function analyzeLinePixels(ctx, left, top, width, height, canvasWidth, canvasHeight) {
-      const pad = 3;
-      const sampleLeft = Math.max(0, Math.floor(left - pad));
-      const sampleTop = Math.max(0, Math.floor(top - pad));
-      const sampleRight = Math.min(canvasWidth - 1, Math.ceil(left + width + pad));
-      const sampleBottom = Math.min(canvasHeight - 1, Math.ceil(top + height + pad));
-      const sampleW = Math.max(1, sampleRight - sampleLeft);
-      const sampleH = Math.max(1, sampleBottom - sampleTop);
-
-      let bgR = 255, bgG = 255, bgB = 255;
-      let textR = 0, textG = 0, textB = 0;
-
-      try {
-        const imgData = ctx.getImageData(sampleLeft, sampleTop, sampleW, sampleH).data;
-
-        // 1. Sample Background Color from boundary perimeter
-        const cornerOffsets = [
-          0,
-          (sampleW - 1) * 4,
-          ((sampleH - 1) * sampleW) * 4,
-          ((sampleH - 1) * sampleW + (sampleW - 1)) * 4
-        ];
-        let sumBgR = 0, sumBgG = 0, sumBgB = 0, bgCount = 0;
-        cornerOffsets.forEach(idx => {
-          if (idx >= 0 && idx + 3 < imgData.length) {
-            sumBgR += imgData[idx];
-            sumBgG += imgData[idx + 1];
-            sumBgB += imgData[idx + 2];
-            bgCount++;
-          }
-        });
-        if (bgCount > 0) {
-          bgR = Math.round(sumBgR / bgCount);
-          bgG = Math.round(sumBgG / bgCount);
-          bgB = Math.round(sumBgB / bgCount);
-        }
-
-        // 2. Sample Dominant Foreground (Text) Color (e.g., pink, cyan, navy, black)
-        let maxDist = 0;
-        let sumTextR = 0, sumTextG = 0, sumTextB = 0, textCount = 0;
-
-        for (let i = 0; i < imgData.length; i += 4) {
-          const r = imgData[i];
-          const g = imgData[i + 1];
-          const b = imgData[i + 2];
-          const dist = Math.hypot(r - bgR, g - bgG, b - bgB);
-          if (dist > 30) {
-            sumTextR += r;
-            sumTextG += g;
-            sumTextB += b;
-            textCount++;
-            if (dist > maxDist) maxDist = dist;
-          }
-        }
-
-        if (textCount > 0) {
-          textR = Math.round(sumTextR / textCount);
-          textG = Math.round(sumTextG / textCount);
-          textB = Math.round(sumTextB / textCount);
-        } else {
-          textR = (bgR > 128) ? 0 : 255;
-          textG = (bgG > 128) ? 0 : 255;
-          textB = (bgB > 128) ? 0 : 255;
-        }
-      } catch (e) {
-        bgR = 255; bgG = 255; bgB = 255;
-        textR = 0; textG = 0; textB = 0;
-      }
-
-      return {
-        bgColor: `rgb(${bgR}, ${bgG}, ${bgB})`,
-        textColor: `rgb(${textR}, ${textG}, ${textB})`
-      };
-    }
-
-    function resolvePdfFont(fontName, rawFamily) {
-      const combined = `${fontName || ''} ${rawFamily || ''}`.toLowerCase();
-
-      const isHeavy = combined.includes('heavy') || combined.includes('black') || combined.includes('extrabold') || combined.includes('ultra');
-      const isBold = isHeavy || combined.includes('bold') || combined.includes('semibold') || combined.includes('medium');
-      const isItalic = combined.includes('italic') || combined.includes('oblique');
-
-      let fontFamily = "'Segoe UI', Arial, sans-serif";
-      let matchedFontSelect = 'Segoe UI';
-
-      if (combined.includes('times') || combined.includes('roman') || combined.includes('serif') || combined.includes('cambria') || combined.includes('georgia')) {
-        fontFamily = "'Times New Roman', Times, Georgia, serif";
-        matchedFontSelect = 'Times New Roman';
-      } else if (combined.includes('courier') || combined.includes('mono') || combined.includes('consolas') || combined.includes('code') || combined.includes('menlo')) {
-        fontFamily = "'Courier New', Consolas, Monaco, monospace";
-        matchedFontSelect = 'Courier New';
-      } else if (combined.includes('calibri') || combined.includes('aptos')) {
-        fontFamily = "Calibri, Aptos, 'Segoe UI', sans-serif";
-        matchedFontSelect = 'Calibri';
-      } else if (combined.includes('arial') || combined.includes('helvetica') || combined.includes('sans')) {
-        fontFamily = "Arial, 'Helvetica Neue', Helvetica, sans-serif";
-        matchedFontSelect = 'Arial';
-      } else if (combined.includes('georgia')) {
-        fontFamily = "Georgia, serif";
-        matchedFontSelect = 'Georgia';
-      }
-
-      const fontWeight = isHeavy ? '900' : (isBold ? 'bold' : 'normal');
-      const fontStyle = isItalic ? 'italic' : 'normal';
-
-      return { fontFamily, fontWeight, fontStyle, isBold, isHeavy, isItalic, matchedFontSelect };
-    }
-
     async function openPdfOriginal(file) {
-      if (!window.pdfjsLib) throw new Error('PDF viewer could not load. Check your connection and try again.');
-      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
       clearOriginalSourceView();
       const pageContainer = document.getElementById('pageContainer');
-      const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+      editor.style.display = 'none';
+
+      wpsPdfEngine = new WpsPdfEngine({
+        container: pageContainer,
+        onStatusChange: (status) => {
+          updateStats();
+          updatePageCount();
+        }
+      });
+
       document.getElementById('docName').innerText = file.name.replace(/\.[^.]+$/, '') + '.docx';
       updateDocTitle();
 
-      for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
-        const page = await pdf.getPage(pageNumber);
-        const unscaledViewport = page.getViewport({ scale: 1 });
-        const scale = 794 / unscaledViewport.width;
-        const viewport = page.getViewport({ scale });
-
-        let pageDiv;
-        if (pageNumber === 1) {
-          pageDiv = editor;
-          pageDiv.innerHTML = '';
-          pageDiv.style.cssText = `position:relative; width:${viewport.width}px; height:${viewport.height}px; min-height:${viewport.height}px; max-height:${viewport.height}px; padding:0; overflow:hidden; box-sizing:border-box; background:#ffffff; box-shadow:0 4px 16px rgba(0,0,0,0.18); flex-shrink:0; margin:0 auto;`;
-        } else {
-          pageDiv = document.createElement('div');
-          pageDiv.className = 'page';
-          pageDiv.style.cssText = `position:relative; width:${viewport.width}px; height:${viewport.height}px; min-height:${viewport.height}px; max-height:${viewport.height}px; padding:0; overflow:hidden; box-sizing:border-box; background:#ffffff; box-shadow:0 4px 16px rgba(0,0,0,0.18); flex-shrink:0; margin:0 auto;`;
-          pageContainer.appendChild(pageDiv);
-        }
-
-        // Layer 0: High-fidelity original PDF rendering (Primacy of Canvas)
-        const canvas = document.createElement('canvas');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        canvas.style.cssText = 'position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:0; display:block;';
-        pageDiv.appendChild(canvas);
-        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-
-        // Layer 1: Transparent interaction layer (Selection, Hit-Testing, In-Place Local Editing)
-        const textContent = await page.getTextContent();
-        const lines = [];
-        const sortedItems = (textContent.items || []).filter(it => it.str && it.str.trim().length > 0);
-
-        sortedItems.forEach(item => {
-          const tx = item.transform;
-          const fontSize = Math.hypot(tx[2], tx[3]) * scale || Math.hypot(tx[0], tx[1]) * scale || 14;
-          const x = tx[4] * scale;
-          const baselineY = viewport.height - tx[5] * scale;
-          const y = baselineY - (fontSize * 0.88);
-          const w = (item.width || (item.str.length * fontSize * 0.55)) * scale;
-
-          const fontMeta = resolvePdfFont(item.fontName, textContent.styles && textContent.styles[item.fontName]?.fontFamily);
-
-          let matchedLine = null;
-          for (const l of lines) {
-            if (Math.abs(l.baselineY - baselineY) <= 3) {
-              const gapToRight = x - l.right;
-              const gapToLeft = l.left - (x + w);
-              const maxAllowedGap = Math.max(20, fontSize * 2);
-              if ((gapToRight >= -5 && gapToRight <= maxAllowedGap) || (gapToLeft >= -5 && gapToLeft <= maxAllowedGap)) {
-                matchedLine = l;
-                break;
-              }
-            }
-          }
-
-          if (matchedLine) {
-            matchedLine.items.push({ str: item.str, x, w, fontSize, fontMeta });
-            matchedLine.left = Math.min(matchedLine.left, x);
-            matchedLine.right = Math.max(matchedLine.right, x + w);
-            matchedLine.top = Math.min(matchedLine.top, y);
-            matchedLine.bottom = Math.max(matchedLine.bottom, y + fontSize);
-            matchedLine.fontSize = Math.max(matchedLine.fontSize, fontSize);
-            if (fontMeta.isBold) matchedLine.fontMeta = fontMeta;
-          } else {
-            lines.push({
-              baselineY,
-              top: y,
-              bottom: y + fontSize,
-              left: x,
-              right: x + w,
-              fontSize,
-              fontMeta,
-              items: [{ str: item.str, x, w, fontSize, fontMeta }]
-            });
-          }
-        });
-
-        // Assemble line text & sample exact colors
-        const ctx = canvas.getContext('2d');
-        lines.forEach(line => {
-          line.items.sort((a, b) => a.x - b.x);
-          let fullText = '';
-          for (let idx = 0; idx < line.items.length; idx++) {
-            const it = line.items[idx];
-            if (idx > 0) {
-              const prev = line.items[idx - 1];
-              const gap = it.x - (prev.x + prev.w);
-              if (gap > 2 && !fullText.endsWith(' ') && !it.str.startsWith(' ')) {
-                fullText += ' ';
-              }
-            }
-            fullText += it.str;
-          }
-          line.text = fullText;
-          line.width = Math.max(line.right - line.left, 10);
-          line.height = Math.max(line.bottom - line.top, line.fontSize);
-          line.centerX = line.left + (line.width / 2);
-
-          // Detect alignment
-          const pageWidth = viewport.width;
-          if (Math.abs(line.centerX - (pageWidth / 2)) < 35 && line.width < pageWidth * 0.85) {
-            line.textAlign = 'center';
-          } else if ((pageWidth - line.right) < 40 && line.left > 100) {
-            line.textAlign = 'right';
-          } else {
-            line.textAlign = 'left';
-          }
-
-          // Sample exact pixel color (e.g. pink, cyan, navy) and background color from canvas
-          const colorAnalysis = analyzeLinePixels(ctx, line.left, line.top, line.width, line.height, canvas.width, canvas.height);
-          line.bgColor = colorAnalysis.bgColor;
-          line.textColor = colorAnalysis.textColor;
-        });
-
-        const textLayer = document.createElement('div');
-        textLayer.className = 'pdf-text-layer';
-        textLayer.style.cssText = 'position:absolute; inset:0; overflow:hidden; z-index:2;';
-
-        lines.forEach(line => {
-          if (!line.text.trim()) return;
-          const lineEl = document.createElement('div');
-          lineEl.className = 'pdf-hit-line';
-          lineEl.contentEditable = 'false';
-          lineEl.spellcheck = false;
-          lineEl.textContent = line.text;
-          lineEl.dataset.originalText = line.text;
-
-          const maxAvailableWidth = Math.max(10, viewport.width - line.left - 4);
-          lineEl.style.setProperty('--line-text-color', line.textColor);
-          lineEl.style.setProperty('--line-bg-color', line.bgColor);
-          lineEl.style.cssText = `
-            position: absolute;
-            left: ${line.left}px;
-            top: ${line.top}px;
-            width: ${line.width}px;
-            font-size: ${line.fontSize}px;
-            font-family: ${line.fontMeta.fontFamily};
-            font-weight: ${line.fontMeta.fontWeight};
-            font-style: ${line.fontMeta.fontStyle};
-            text-align: ${line.textAlign};
-            line-height: 1.15;
-            white-space: pre;
-            min-width: 8px;
-            max-width: ${maxAvailableWidth}px;
-            --line-text-color: ${line.textColor};
-            --line-bg-color: ${line.bgColor};
-          `;
-
-          // Local In-Place Editing Trigger (Zero Ghost Text, Matching Styles)
-          lineEl.addEventListener('click', () => {
-            if (lineEl.classList.contains('is-editing')) return;
-
-            // 1. Immediately cover/erase original text on the canvas with sampled background color
-            try {
-              const canvasCtx = canvas.getContext('2d');
-              canvasCtx.fillStyle = line.bgColor;
-              canvasCtx.fillRect(Math.max(0, line.left - 2), Math.max(0, line.top - 2), line.width + 4, line.height + 4);
-            } catch (e) {}
-
-            // 2. Activate live in-place editor with exact sampled font, weight, color and background
-            lineEl.style.setProperty('--line-text-color', line.textColor);
-            lineEl.style.setProperty('--line-bg-color', line.bgColor);
-            lineEl.style.color = line.textColor;
-            lineEl.style.backgroundColor = line.bgColor;
-            lineEl.contentEditable = 'true';
-            lineEl.classList.add('is-editing');
-            lineEl.focus();
-
-            // 3. Update top toolbar controls to reflect the actual text properties
-            try {
-              const fontSelect = document.getElementById('fontName');
-              if (fontSelect && line.fontMeta.matchedFontSelect) {
-                fontSelect.value = line.fontMeta.matchedFontSelect;
-              }
-              const sizeInput = document.getElementById('fontSize');
-              if (sizeInput) {
-                sizeInput.value = Math.round(line.fontSize * 72 / 96);
-              }
-              const btnBold = document.getElementById('btn-bold');
-              if (btnBold) btnBold.classList.toggle('active', line.fontMeta.isBold);
-              const btnItalic = document.getElementById('btn-italic');
-              if (btnItalic) btnItalic.classList.toggle('active', line.fontMeta.isItalic);
-            } catch (e) {}
-          });
-
-          lineEl.addEventListener('blur', () => {
-            lineEl.contentEditable = 'false';
-            lineEl.classList.remove('is-editing');
-            lineEl.classList.add('is-edited');
-            lineEl.style.setProperty('--line-text-color', line.textColor);
-            lineEl.style.setProperty('--line-bg-color', line.bgColor);
-            lineEl.style.color = line.textColor;
-            lineEl.style.backgroundColor = line.bgColor;
-            updateStats();
-            autoSaveDraft();
-          });
-
-          lineEl.addEventListener('input', () => {
-            // Keep centered alignment anchored around the original center point
-            if (line.textAlign === 'center') {
-              const newW = Math.max(line.width, lineEl.scrollWidth + 6);
-              const newLeft = Math.max(8, line.centerX - (newW / 2));
-              lineEl.style.width = `${newW}px`;
-              lineEl.style.left = `${newLeft}px`;
-            }
-            updateStats();
-            autoSaveDraft();
-          });
-
-          textLayer.appendChild(lineEl);
-        });
-
-        pageDiv.appendChild(textLayer);
-      }
-
+      await wpsPdfEngine.load(file);
       updateStats();
       updatePageCount();
       toggleFileMenu(false);
