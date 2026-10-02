@@ -247,8 +247,10 @@
       cursor: text;
       position: relative;
       box-sizing: border-box;
+      overflow-wrap: break-word;
       transition: all 0.2s ease;
     }
+    .page img { max-width: 100%; height: auto; }
 
     /* Watermark effect */
     .page.watermark::before {
@@ -301,7 +303,6 @@
       color: white;
       box-shadow: 4px 0 16px rgba(0,0,0,0.25);
       z-index: 1000;
-      display: flex;
       flex-direction: column;
     }
     .file-drawer-item {
@@ -361,6 +362,104 @@
     .drawing-canvas { display:block; width:100%; max-width:620px; height:260px; margin:12px 0; border:1px dashed #185abd; background:#fff; touch-action:none; }
     .selected-editor-image { outline:3px solid #185abd; outline-offset:3px; cursor:move; }
     .image-caption { color:#666; font-size:9pt; text-align:center; margin-top:-4px; }
+
+    /* Print Styles */
+    @media print {
+      @page {
+        size: auto;
+        margin: 0mm;
+      }
+      *, *::before, *::after {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+      html, body {
+        width: 100% !important;
+        height: auto !important;
+        min-height: 100% !important;
+        overflow: visible !important;
+        background: #ffffff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: block !important;
+      }
+      .title-bar,
+      .ribbon-container,
+      .status-bar,
+      .ruler-container,
+      .file-drawer,
+      #file-drawer,
+      .student-chat,
+      .tool-note,
+      #intelli-workspace,
+      .intelli-app,
+      .command-backdrop {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        width: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+      .workspace {
+        padding: 0 !important;
+        margin: 0 !important;
+        background: #ffffff !important;
+        overflow: visible !important;
+        display: block !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: 0 !important;
+      }
+      .page-container,
+      #pageContainer {
+        display: block !important;
+        gap: 0 !important;
+        margin: 0 auto !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        transform: none !important;
+      }
+      .page {
+        box-shadow: none !important;
+        margin: 0 auto !important;
+        page-break-after: always !important;
+        page-break-inside: avoid !important;
+        break-after: page !important;
+        break-inside: avoid !important;
+        background: #ffffff !important;
+        overflow: hidden !important;
+        box-sizing: border-box !important;
+      }
+      .page:last-child {
+        page-break-after: auto !important;
+        break-after: auto !important;
+      }
+      .page canvas {
+        display: block !important;
+        max-width: 100% !important;
+      }
+      .pdf-text-layer {
+        position: absolute !important;
+        inset: 0 !important;
+        overflow: hidden !important;
+        z-index: 2 !important;
+      }
+      .pdf-editable-line {
+        position: absolute !important;
+        color: #000000 !important;
+        background: transparent !important;
+        border: none !important;
+        outline: none !important;
+      }
+      .selected-editor-image {
+        outline: none !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -987,9 +1086,15 @@
       if (targetToolbar) targetToolbar.style.display = 'flex';
     }
 
-    function toggleFileMenu() {
+    function toggleFileMenu(forceState) {
       const drawer = document.getElementById('file-drawer');
-      drawer.style.display = (drawer.style.display === 'flex') ? 'none' : 'flex';
+      if (!drawer) return;
+      if (typeof forceState === 'boolean') {
+        drawer.style.display = forceState ? 'flex' : 'none';
+        return;
+      }
+      const isVisible = drawer.style.display === 'flex' || window.getComputedStyle(drawer).display === 'flex';
+      drawer.style.display = isVisible ? 'none' : 'flex';
     }
 
     function updateDocTitle() {
@@ -1733,7 +1838,7 @@
         editor.innerHTML = '<p><br></p>';
         editor.focus();
         updateStats();
-        toggleFileMenu();
+        toggleFileMenu(false);
         localStorage.removeItem('word_doc_draft');
       }
     }
@@ -1755,7 +1860,7 @@
       updateDocTitle();
       updateStats();
       autoSaveDraft();
-      toggleFileMenu();
+      toggleFileMenu(false);
       editor.focus();
     }
 
@@ -1777,6 +1882,38 @@
       editor.style.background = '';
       editor.style.boxShadow = '';
       originalSourceKind = null;
+    }
+
+    function measureLineText(lineEl) {
+      const range = document.createRange();
+      range.selectNodeContents(lineEl);
+      const container = document.getElementById('pageContainer');
+      const scale = container && container.offsetWidth ? container.getBoundingClientRect().width / container.offsetWidth : 1;
+      return range.getBoundingClientRect().width / (scale || 1);
+    }
+
+    function fitLineInsidePage(lineEl, limit, originalWidth) {
+      if (!lineEl || !(limit > 0)) return;
+      const budget = limit;
+      let width = measureLineText(lineEl);
+      if (width > budget && budget > 20) {
+        const fontSize = parseFloat(window.getComputedStyle(lineEl).fontSize) || 14;
+        const nextSize = Math.max(7, fontSize * (budget / width));
+        if (nextSize < fontSize) {
+          const top = parseFloat(lineEl.style.top) || 0;
+          lineEl.style.top = (top + (fontSize - nextSize) * 0.5) + 'px';
+          lineEl.style.fontSize = nextSize.toFixed(2) + 'px';
+        }
+      }
+      lineEl.style.maxWidth = budget + 'px';
+    }
+
+    function keepLineInsidePage(lineEl, limit) {
+      const max = parseFloat(limit || lineEl.dataset.maxWidth || lineEl.style.maxWidth);
+      if (!(max > 0)) return;
+      lineEl.style.maxWidth = max + 'px';
+      lineEl.style.whiteSpace = 'pre-wrap';
+      lineEl.style.overflowWrap = 'break-word';
     }
 
     async function openPdfOriginal(file) {
@@ -1836,8 +1973,13 @@
           let matchedLine = null;
           for (const l of lines) {
             if (Math.abs(l.baselineY - baselineY) <= 3) {
-              matchedLine = l;
-              break;
+              const gapToRight = x - l.right;
+              const gapToLeft = l.left - (x + w);
+              const maxAllowedGap = Math.max(16, fontSize * 1.8);
+              if ((gapToRight >= -5 && gapToRight <= maxAllowedGap) || (gapToLeft >= -5 && gapToLeft <= maxAllowedGap)) {
+                matchedLine = l;
+                break;
+              }
             }
           }
 
@@ -1875,7 +2017,7 @@
             if (idx > 0) {
               const prev = line.items[idx - 1];
               const gap = it.x - (prev.x + prev.w);
-              if (gap > 2 && !fullText.endsWith(' ') && !it.str.startsWith(' ')) {
+              if (gap > 1.5 && !fullText.endsWith(' ') && !it.str.startsWith(' ')) {
                 fullText += ' ';
               }
             }
@@ -1897,13 +2039,14 @@
           } catch (e) {
             ctx.fillStyle = '#ffffff';
           }
-          ctx.fillRect(line.left - 2, line.top - 2, line.width + 4, line.height + 4);
+          ctx.fillRect(Math.max(0, line.left - 2), Math.max(0, line.top - 2), line.width + 4, line.height + 4);
         });
 
         // 4. Create editable text layer directly on top
         const textLayer = document.createElement('div');
         textLayer.className = 'pdf-text-layer';
         textLayer.style.cssText = 'position:absolute; inset:0; overflow:hidden; z-index:2;';
+        pageDiv.appendChild(textLayer);
 
         lines.forEach(line => {
           if (!line.text.trim()) return;
@@ -1912,6 +2055,7 @@
           lineEl.contentEditable = 'true';
           lineEl.spellcheck = false;
           lineEl.textContent = line.text;
+          const maxAvailableWidth = Math.max(12, viewport.width - line.left - 4);
           lineEl.style.cssText = `
             position: absolute;
             left: ${line.left}px;
@@ -1922,7 +2066,9 @@
             font-style: ${line.isItalic ? 'italic' : 'normal'};
             color: #000000;
             line-height: 1.15;
-            white-space: pre;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-wrap: break-word;
             cursor: text;
             outline: none;
             border: none;
@@ -1931,22 +2077,24 @@
             padding: 0;
             user-select: text;
             min-width: 8px;
+            max-width: ${maxAvailableWidth}px;
+            box-sizing: border-box;
           `;
 
           lineEl.addEventListener('input', () => {
+            keepLineInsidePage(lineEl, maxAvailableWidth);
             updateStats();
             autoSaveDraft();
           });
 
           textLayer.appendChild(lineEl);
+          fitLineInsidePage(lineEl, maxAvailableWidth, line.width);
         });
-
-        pageDiv.appendChild(textLayer);
       }
 
       updateStats();
       updatePageCount();
-      toggleFileMenu();
+      toggleFileMenu(false);
     }
 
     async function openDocxOriginal(file) {
@@ -2074,6 +2222,7 @@
     }
 
     function exportToPDF() {
+      toggleFileMenu(false);
       window.print();
     }
 
@@ -2129,7 +2278,10 @@
     function autoSaveDraft() {
       try {
         const pages = document.querySelectorAll('#pageContainer .page');
-        const pagesData = Array.from(pages).map(p => p.innerHTML);
+        const pagesData = Array.from(pages).map(p => ({
+          html: p.innerHTML,
+          style: p.getAttribute('style') || ''
+        }));
         localStorage.setItem('word_doc_draft_pages', JSON.stringify(pagesData));
         localStorage.setItem('word_doc_name', document.getElementById('docName').innerText);
       } catch (e) {}
@@ -2147,17 +2299,26 @@
           const list = JSON.parse(savedPages);
           if (list && list.length) {
             clearOriginalSourceView();
-            list.forEach((html, idx) => {
+            list.forEach((item, idx) => {
+              const html = typeof item === 'string' ? item : (item.html || '');
+              const style = typeof item === 'object' && item.style ? item.style : '';
               if (idx === 0) {
                 editor.innerHTML = html;
+                if (style) editor.setAttribute('style', style);
               } else {
                 const newPage = document.createElement('div');
                 newPage.className = 'page';
                 newPage.contentEditable = 'true';
                 newPage.spellcheck = true;
                 newPage.innerHTML = html;
+                if (style) newPage.setAttribute('style', style);
                 document.getElementById('pageContainer').appendChild(newPage);
               }
+            });
+            document.querySelectorAll('.pdf-editable-line').forEach(lineEl => {
+              const layer = lineEl.parentElement;
+              const limit = Math.max(8, ((layer && layer.clientWidth) || 794) - (parseFloat(lineEl.style.left) || 0) - 4);
+              fitLineInsidePage(lineEl, limit, 0);
             });
             updateStats();
             return;
@@ -2189,6 +2350,10 @@
         if (formatPainterFormat.italic) format('italic');
         formatPainterFormat = null;
       }
+    });
+
+    window.addEventListener('beforeprint', () => {
+      toggleFileMenu(false);
     });
   </script>
   <script src="platform.js"></script>

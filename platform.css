@@ -90,3 +90,4 @@ body.platform-active { overflow: hidden; background: var(--app-bg); }
 .command-option small { color: var(--muted); }
 @media (max-width: 1050px) { .intelli-layout { grid-template-columns: 215px minmax(0,1fr); } .intelli-properties { display: none; } .overview-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 720px) { .intelli-layout { grid-template-columns: 1fr; } .intelli-sidebar { display: none; } .intelli-tabs { display: none; } .intelli-brand { min-width: 0; } .workspace-main { padding: 14px; } .workspace-header { align-items: flex-start; flex-direction: column; } .overview-grid, .study-grid { grid-template-columns: 1fr; } .document-canvas { padding: 30px 24px; min-height: 620px; } .document-row { grid-template-columns: 28px minmax(0,1fr); } .document-row > :nth-child(n+3) { display: none; } }
+@media print { #intelli-workspace, .intelli-app, .command-backdrop { display: none !important; } }
